@@ -1,51 +1,146 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Family Photos Dashboard — Google Drive edition
-Run locally:  streamlit run ~/projects/family_photos.py
-Deployed at:  https://share.streamlit.io
+Family Photos Dashboard — Static Index edition
+Navigation reads from static/index.json (no Drive API).
+Thumbnails fetched from Drive API (cached per session).
 """
 
+import json
+import os
 import streamlit as st
-from drive_api import (
-    list_folders,
-    list_media,
-    list_media_recursive,
-    get_folder_id,
-    search_drive_folders,
-    thumb_url,
-    modal_url,
-    drive_view_url,
-    IMG_MIME,
-    VID_MIME,
-)
+from drive_api import fetch_modal, get_thumbnail_bytes, drive_view_url, IMG_MIME, VID_MIME
 
-# ── Config ────────────────────────────────────────────────────────────────────
-
-ROOT_ID = st.secrets["DRIVE_ROOT_FOLDER_ID"]
+ROOT_ID   = st.secrets["DRIVE_ROOT_FOLDER_ID"]
+THUMB_DIR = "static/thumbs"
 
 CATEGORIES = [
     ("משפחה - חיי יום יום", "👨‍👩‍👧‍👦"),
-    ("אירועים משפחתיים", "🎉"),
-    ("טיולים", "✈️"),
-    ("תמונות סרוקות", "🗃️"),
-    ("תמונות לא ממויינות", "📋"),
-    ("אוכל", "🍽️"),
-    ("ג׳וי", "🐕"),
+    ("אירועים משפחתיים",    "🎉"),
+    ("טיולים",               "✈️"),
+    ("תמונות סרוקות",        "🗃️"),
+    ("תמונות לא ממויינות",   "📋"),
+    ("אוכל",                 "🍽️"),
+    ("ג׳וי",                  "🐕"),
 ]
-CAT_NAMES  = [c[0] for c in CATEGORIES]
+CAT_NAMES = [c[0] for c in CATEGORIES]
+PAGE_SIZE = 24
 
-PAGE_SIZE = 48
+
+# ── Load static index ─────────────────────────────────────────────────────────
+
+@st.cache_resource
+def load_index():
+    with open("static/index.json", encoding="utf-8") as f:
+        return json.load(f)
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ── Index navigation helpers (instant — no Drive API) ────────────────────────
+
+def idx_subfolders(folder_id, idx):
+    """Return list of {id, name} for direct sub-folders."""
+    fdata = idx["folders"].get(folder_id, {})
+    out = []
+    for cid in fdata.get("folders", []):
+        if cid in idx["folders"]:
+            out.append({"id": cid, "name": idx["folders"][cid]["name"]})
+    return out
+
+
+def idx_media(folder_id, idx):
+    """Return (images, videos) for direct files in folder."""
+    fdata = idx["folders"].get(folder_id, {})
+    imgs, vids = [], []
+    for fid in fdata.get("files", []):
+        f = idx["files"].get(fid)
+        if not f:
+            continue
+        item = {"id": fid, "name": f["name"], "mimeType": f["mime"]}
+        if f["mime"] in IMG_MIME:
+            imgs.append(item)
+        elif f["mime"] in VID_MIME:
+            vids.append(item)
+    return imgs, vids
+
+
+def idx_media_recursive(folder_id, idx):
+    """Recursively collect (images, videos) under folder_id."""
+    imgs, vids = idx_media(folder_id, idx)
+    for sub in idx_subfolders(folder_id, idx):
+        si, sv = idx_media_recursive(sub["id"], idx)
+        imgs = imgs + si
+        vids = vids + sv
+    return imgs, vids
+
+
+def idx_find_folder(parent_id, name, idx):
+    """Find a direct sub-folder by name. Returns id or None."""
+    for cid in idx["folders"].get(parent_id, {}).get("folders", []):
+        if idx["folders"].get(cid, {}).get("name") == name:
+            return cid
+    return None
+
+
+def idx_search(query, root_id, idx):
+    """Search folder names up to 2 levels deep. Returns [{id, name, path}]."""
+    q = query.lower()
+    results = []
+    for cat_id in idx["folders"].get(root_id, {}).get("folders", []):
+        cat_name = idx["folders"][cat_id]["name"]
+        for s1_id in idx["folders"].get(cat_id, {}).get("folders", []):
+            s1_name = idx["folders"][s1_id]["name"]
+            if q in s1_name.lower():
+                results.append({"id": s1_id, "name": s1_name,
+                                "path": f"{cat_name} / {s1_name}"})
+            for s2_id in idx["folders"].get(s1_id, {}).get("folders", []):
+                s2_name = idx["folders"][s2_id]["name"]
+                if q in s2_name.lower():
+                    results.append({"id": s2_id, "name": s2_name,
+                                    "path": f"{cat_name} / {s1_name} / {s2_name}"})
+    return sorted(results, key=lambda r: r["name"])
+
 
 def has_year_structure(folders):
     """True if ≥50% of folder names are 4-digit years."""
     if not folders:
         return False
-    year_like = sum(1 for f in folders if f["name"].isdigit() and len(f["name"]) == 4)
+    year_like = sum(1 for f in folders
+                    if f["name"].isdigit() and len(f["name"]) == 4)
     return year_like / len(folders) >= 0.5
+
+
+def group_by_5years(year_folders):
+    """
+    Group year folders into 5-year ranges.
+    Returns [(label, [folder_dict, ...]), ...]  sorted ascending.
+    9999 (unsorted) appended at end as '📦 לא ממויין'.
+    """
+    real, unsorted = [], []
+    for f in year_folders:
+        (unsorted if f["name"] == "9999" else real).append(f)
+
+    real.sort(key=lambda f: int(f["name"]) if f["name"].isdigit() else 9998)
+
+    if not real:
+        return [("📦 לא ממויין", unsorted)] if unsorted else []
+
+    nums = [int(f["name"]) for f in real if f["name"].isdigit()]
+    lo   = (min(nums) // 5) * 5
+    hi   = max(nums)
+
+    groups = []
+    y = lo
+    while y <= hi:
+        end     = y + 4
+        label   = f"{y}–{end}"
+        members = [f for f in real if f["name"].isdigit() and y <= int(f["name"]) <= end]
+        if members:
+            groups.append((label, members))
+        y += 5
+
+    if unsorted:
+        groups.append(("📦 לא ממויין", unsorted))
+    return groups
 
 
 # ── Page setup ────────────────────────────────────────────────────────────────
@@ -59,102 +154,34 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-  /* RTL */
   html, body, [class*="css"]  { direction: rtl; }
-  /* push content below Streamlit toolbar */
   .block-container             { padding-top: 3.5rem; padding-bottom: 2rem; }
-  /* hide Streamlit's own header/toolbar */
   header[data-testid="stHeader"] { display: none; }
-
-  /* Header bar */
-  .nav-bar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-    background: #ffffff;
-    border-bottom: 2px solid #e5e7eb;
-    padding: 10px 0 12px 0;
-    margin-bottom: 16px;
-  }
-  .nav-title {
-    font-size: 22px;
-    font-weight: 700;
-    color: #1f2937;
-    white-space: nowrap;
-    margin-left: 8px;
-  }
-
-  /* Breadcrumb */
-  .breadcrumb {
-    font-size: 13px;
-    color: #6b7280;
-    margin-bottom: 4px;
-  }
-
-  /* Stat pills */
-  .pill {
-    display: inline-block;
-    background: #f3f4f6;
-    border-radius: 999px;
-    padding: 2px 12px;
-    font-size: 13px;
-    color: #374151;
-    margin-left: 6px;
-  }
-
-  /* All buttons base */
+  .nav-title { font-size: 22px; font-weight: 700; color: #1f2937; white-space: nowrap; }
+  .breadcrumb { font-size: 13px; color: #6b7280; margin-bottom: 4px; }
+  .pager { text-align: center; color: #6b7280; font-size: 13px; padding-top: 4px; }
   div[data-testid="stButton"] > button {
-    border-radius: 20px;
-    font-size: 13px;
-    padding: 5px 14px;
-    width: 100%;
-    transition: all 0.15s ease;
+    border-radius: 20px; font-size: 13px; padding: 5px 14px;
+    width: 100%; transition: all 0.15s ease;
   }
-  /* Sub-folder buttons (secondary style) */
   div[data-testid="stButton"] > button[kind="secondary"] {
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    color: #374151;
-    text-align: right;
-    border-radius: 8px;
+    background: #f9fafb; border: 1px solid #e5e7eb; color: #374151;
+    text-align: right; border-radius: 8px;
   }
   div[data-testid="stButton"] > button[kind="secondary"]:hover {
-    background: #eff6ff;
-    border-color: #93c5fd;
-    color: #1d4ed8;
+    background: #eff6ff; border-color: #93c5fd; color: #1d4ed8;
   }
-  /* Category pill active (primary) */
   div[data-testid="stButton"] > button[kind="primary"] {
-    background: #2563eb;
-    border: none;
-    color: white;
-    font-weight: 600;
+    background: #2563eb; border: none; color: white; font-weight: 600;
   }
-  /* Category pill inactive */
-  div[data-testid="stButton"] > button[kind="secondaryFormSubmit"],
-  div[data-testid="stButton"] > button:not([kind="primary"]):not([kind="secondary"]) {
-    background: #f3f4f6;
-    border: 1px solid #e5e7eb;
-    color: #374151;
-  }
-
-  /* Image captions */
   .stImage p { font-size: 11px; color: #9ca3af; text-align: center; }
-
-  /* Pagination */
-  .pager { text-align: center; color: #6b7280; font-size: 13px; padding-top: 4px; }
-
-  /* Hide default sidebar toggle in collapsed state */
   section[data-testid="stSidebar"] { display: none; }
-
-  /* Hide built-in X on dialog — we use our own close button */
   [data-testid="stDialog"] button[data-testid="stBaseButton-headerNoPadding"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
 
-# ── Session state defaults ────────────────────────────────────────────────────
+# ── Session state ─────────────────────────────────────────────────────────────
 
 def ss(key, default):
     if key not in st.session_state:
@@ -163,23 +190,29 @@ def ss(key, default):
 ss("cat_idx",      0)
 ss("search_q",     "")
 ss("page",         0)
-# nav_stack: list of {"id": str, "name": str} — full path from category root
 ss("nav_stack",    [])
-ss("modal_img",    None)   # Drive file_id string
-ss("media_filter", "all")  # "all" | "images" | "videos"
+ss("modal_img",    None)
+ss("media_filter", "all")
+
+idx = load_index()
 
 
-# ── Image modal (defined here, called at end of script) ───────────────────────
+# ── Modal ─────────────────────────────────────────────────────────────────────
 
 @st.dialog("📷 תמונה", width="large")
-def image_modal(file_id):
-    st.image(modal_url(file_id))
+def image_modal(file):
+    data = fetch_modal(file["id"])
+    if data:
+        st.image(data, width="stretch")
+    else:
+        st.warning("לא ניתן לטעון תמונה זו")
+    st.caption(file.get("name", ""))
     if st.button("✕ סגור", use_container_width=True):
         st.session_state.modal_img = None
         st.rerun()
 
 
-# ── Navigation header ─────────────────────────────────────────────────────────
+# ── Header ────────────────────────────────────────────────────────────────────
 
 title_col, home_col = st.columns([5, 1])
 with title_col:
@@ -193,7 +226,6 @@ with home_col:
         st.session_state.search_chosen = ""
         st.rerun()
 
-# Search bar — own row, clearly visible
 search_q = st.text_input(
     "🔍 חיפוש תיקייה",
     value=st.session_state.search_q,
@@ -206,52 +238,47 @@ if search_q != st.session_state.search_q:
     st.session_state.search_chosen = ""
     st.rerun()
 
-# Category pills — row of 4, then row of 3 (centered with spacers)
+# Category pills
 ROW1 = CATEGORIES[:4]
 ROW2 = CATEGORIES[4:]
 
 cols1 = st.columns(4)
 for col, (name, icon) in zip(cols1, ROW1):
-    idx = CAT_NAMES.index(name)
-    is_active = (idx == st.session_state.cat_idx)
+    idx_cat = CAT_NAMES.index(name)
+    is_active = (idx_cat == st.session_state.cat_idx)
     with col:
-        if st.button(f"{icon}  {name}", key=f"cat_{idx}",
+        if st.button(f"{icon}  {name}", key=f"cat_{idx_cat}",
                      type="primary" if is_active else "secondary",
                      use_container_width=True):
             if not is_active:
-                st.session_state.cat_idx  = idx
+                st.session_state.cat_idx   = idx_cat
                 st.session_state.nav_stack = []
-                st.session_state.page     = 0
+                st.session_state.page      = 0
                 st.rerun()
 
 _, c1, c2, c3, _ = st.columns([1, 2, 2, 2, 1])
 for col, (name, icon) in zip((c1, c2, c3), ROW2):
-    idx = CAT_NAMES.index(name)
-    is_active = (idx == st.session_state.cat_idx)
+    idx_cat = CAT_NAMES.index(name)
+    is_active = (idx_cat == st.session_state.cat_idx)
     with col:
-        if st.button(f"{icon}  {name}", key=f"cat_{idx}",
+        if st.button(f"{icon}  {name}", key=f"cat_{idx_cat}",
                      type="primary" if is_active else "secondary",
                      use_container_width=True):
             if not is_active:
-                st.session_state.cat_idx  = idx
+                st.session_state.cat_idx   = idx_cat
                 st.session_state.nav_stack = []
-                st.session_state.page     = 0
+                st.session_state.page      = 0
                 st.rerun()
 
-st.markdown('<hr style="margin:8px 0 12px 0;border:none;border-top:2px solid #e5e7eb;">', unsafe_allow_html=True)
+st.markdown('<hr style="margin:8px 0 12px 0;border:none;border-top:2px solid #e5e7eb;">',
+            unsafe_allow_html=True)
 
 
-# ── Pill selector helper ──────────────────────────────────────────────────────
+# ── Pill helper ───────────────────────────────────────────────────────────────
 
-def pill_row(options, selected, key_prefix, n_cols, all_label="הכל"):
-    """
-    Render options as pill buttons.
-    selected: currently selected value, or None for "all".
-    Returns the newly selected value (None = all), or sentinel 'NO_CHANGE'.
-    """
-    all_options = [all_label] + options
+def pill_row(options, selected, key_prefix, n_cols, all_label="הכל", all_at_end=False):
+    all_options = options + [all_label] if all_at_end else [all_label] + options
     result = "NO_CHANGE"
-
     rows = [all_options[i:i+n_cols] for i in range(0, len(all_options), n_cols)]
     for row in rows:
         padded = row + [""] * (n_cols - len(row))
@@ -261,65 +288,85 @@ def pill_row(options, selected, key_prefix, n_cols, all_label="הכל"):
                 continue
             is_active = (opt == all_label and selected is None) or (opt == selected)
             with col:
-                if st.button(
-                    opt,
-                    key=f"{key_prefix}_{opt}",
-                    type="primary" if is_active else "secondary",
-                    use_container_width=True,
-                ):
+                if st.button(opt, key=f"{key_prefix}_{opt}",
+                             type="primary" if is_active else "secondary",
+                             use_container_width=True):
                     result = None if opt == all_label else opt
     return result
 
 
-# ── Fetch category data ───────────────────────────────────────────────────────
+# ── Resolve category folder (from index) ──────────────────────────────────────
 
 selected_cat  = CAT_NAMES[st.session_state.cat_idx]
-cat_folder_id = get_folder_id(ROOT_ID, selected_cat)
-cat_folders   = list_folders(cat_folder_id) if cat_folder_id else []
-with_years    = has_year_structure(cat_folders)
+cat_folder_id = idx_find_folder(ROOT_ID, selected_cat, idx)
 
-nav = st.session_state.nav_stack  # shorthand (list of {"id", "name"})
-
-
-# ── Year / Event pill navigation (always visible unless in search mode) ───────
+nav       = st.session_state.nav_stack
+nav_depth = len(nav)
 
 if not st.session_state.search_q:
-    if with_years:
-        year_names   = [f["name"] for f in cat_folders]
-        year_display = ["📦" if y == "9999" else y for y in year_names]
-        active_year  = nav[0]["name"] if nav else None
+    if not cat_folder_id:
+        st.warning(f"לא נמצאה קטגוריה: **{selected_cat}**")
+        st.stop()
 
-        st.markdown("**שנה**")
-        yr_result = pill_row(year_display, active_year, "yr", n_cols=10, all_label="כל השנים")
-        if yr_result != "NO_CHANGE":
-            if yr_result == "כל השנים":
+    cat_folders  = idx_subfolders(cat_folder_id, idx)
+    with_years   = has_year_structure(cat_folders)
+
+    if with_years:
+        year_groups   = group_by_5years(cat_folders)
+        group_labels  = [g[0] for g in year_groups]
+
+        # Auto-select most recent group on first entry
+        if not nav and year_groups:
+            last_label, last_members = year_groups[-1]
+            st.session_state.nav_stack = [{"id": "__group__", "name": last_label,
+                                            "folders": last_members}]
+            nav       = st.session_state.nav_stack
+            nav_depth = 1
+
+        active_group = nav[0]["name"] if nav else None
+        st.markdown("**תקופה**")
+        gr_result = pill_row(group_labels, active_group, "grp", n_cols=7,
+                             all_label="הכל", all_at_end=True)
+        if gr_result != "NO_CHANGE":
+            if gr_result is None:
                 st.session_state.nav_stack = []
             else:
-                actual = year_names[year_display.index(yr_result)]
-                yid    = get_folder_id(cat_folder_id, actual)
-                st.session_state.nav_stack = [{"id": yid, "name": actual}] if yid else []
+                matched = next((g for g in year_groups if g[0] == gr_result), None)
+                if matched:
+                    st.session_state.nav_stack = [{"id": "__group__", "name": matched[0],
+                                                    "folders": matched[1]}]
             st.session_state.page = 0
             st.rerun()
 
-        # Event pills — shown only when a year is selected
-        if nav:
-            year_folder_id = nav[0]["id"]
-            event_folders  = list_folders(year_folder_id)
-            if event_folders:
-                event_names  = [f["name"] for f in event_folders]
-                active_event = nav[1]["name"] if len(nav) >= 2 else None
+        if nav and nav[0].get("id") == "__group__":
+            # Collect events from ALL years in the group; prefix with year
+            all_events = []
+            for yf in nav[0]["folders"]:
+                for ev in idx_subfolders(yf["id"], idx):
+                    display_name = f"{yf['name']} | {ev['name']}"
+                    all_events.append({"id": ev["id"], "name": ev["name"],
+                                       "display": display_name, "year": yf["name"]})
+
+            if all_events:
+                disp_names   = [e["display"] for e in all_events]
+                active_event = nav[1].get("display") if len(nav) >= 2 else None
                 st.markdown("**אירוע**")
-                ev_result = pill_row(event_names, active_event, "ev", n_cols=4, all_label="כל האירועים")
+                ev_result = pill_row(disp_names, active_event, "ev", n_cols=4,
+                                     all_label="כל האירועים")
                 if ev_result != "NO_CHANGE":
-                    if ev_result == "כל האירועים":
+                    if ev_result is None:
                         st.session_state.nav_stack = [nav[0]]
                     else:
-                        eid = get_folder_id(year_folder_id, ev_result)
-                        if eid:
-                            st.session_state.nav_stack = [nav[0], {"id": eid, "name": ev_result}]
+                        matched_ev = next((e for e in all_events
+                                           if e["display"] == ev_result), None)
+                        if matched_ev:
+                            st.session_state.nav_stack = [
+                                nav[0],
+                                {"id": matched_ev["id"], "name": matched_ev["name"],
+                                 "display": matched_ev["display"], "year": matched_ev["year"]},
+                            ]
                     st.session_state.page = 0
                     st.rerun()
-
     else:
         active_folder = nav[0]["name"] if nav else None
         if cat_folders:
@@ -327,22 +374,22 @@ if not st.session_state.search_q:
             st.markdown("**תיקייה**")
             ev_result = pill_row(folder_names, active_folder, "ev", n_cols=4, all_label="הכל")
             if ev_result != "NO_CHANGE":
-                if ev_result == "הכל":
+                if ev_result is None:
                     st.session_state.nav_stack = []
                 else:
-                    fid = get_folder_id(cat_folder_id, ev_result)
+                    fid = idx_find_folder(cat_folder_id, ev_result, idx)
                     st.session_state.nav_stack = [{"id": fid, "name": ev_result}] if fid else []
                 st.session_state.page = 0
                 st.rerun()
 
-    # Re-read nav after possible rerun
-    nav = st.session_state.nav_stack
+    nav       = st.session_state.nav_stack
+    nav_depth = len(nav)
 
 
 # ── Resolve display folder ────────────────────────────────────────────────────
 
 if st.session_state.search_q:
-    results = search_drive_folders(st.session_state.search_q, ROOT_ID)
+    results = idx_search(st.session_state.search_q, ROOT_ID, idx)
     if not results:
         st.info("לא נמצאו תיקיות")
         st.stop()
@@ -376,53 +423,58 @@ if st.session_state.search_q:
     breadcrumb        = chosen_result["path"].replace(" / ", " › ")
 
 else:
-    display_folder_id = nav[-1]["id"] if nav else cat_folder_id
-    breadcrumb_parts  = [selected_cat] + [n["name"] for n in nav]
-    breadcrumb        = " › ".join(breadcrumb_parts)
+    # When a group is selected but no specific event — display_folder_id is virtual
+    if nav and nav[-1].get("id") == "__group__":
+        display_folder_id = "__group__"
+    else:
+        display_folder_id = nav[-1]["id"] if nav else cat_folder_id
 
-# Guard: if the category folder couldn't be found in Drive
+    # Breadcrumb: use "display" name if available (includes year prefix)
+    breadcrumb_parts = [selected_cat] + [n.get("display", n["name"]) for n in nav]
+    breadcrumb       = " › ".join(breadcrumb_parts)
+
 if not display_folder_id:
-    st.warning(f"לא נמצאה תיקייה בגוגל דרייב: **{selected_cat}**")
+    st.warning(f"לא נמצאה תיקייה: **{selected_cat}**")
     st.stop()
 
-# Breadcrumb + back button
-bc_col, back_col = st.columns([8, 1])
-with bc_col:
-    st.markdown(f'<div class="breadcrumb">📁 {breadcrumb}</div>', unsafe_allow_html=True)
-with back_col:
-    if nav:
-        if st.button("⬆️ חזור"):
-            st.session_state.nav_stack = nav[:-1]
-            st.session_state.page = 0
-            st.rerun()
+st.markdown(f'<div class="breadcrumb">📁 {breadcrumb}</div>', unsafe_allow_html=True)
 
 
-# ── Sub-folder navigation ─────────────────────────────────────────────────────
+# ── Load media (from index — instant) ────────────────────────────────────────
 
-sub_folders = list_folders(display_folder_id)
-if sub_folders:
-    with st.expander(f"📂 תת-תיקיות ({len(sub_folders)})", expanded=len(sub_folders) <= 10):
-        cols = st.columns(min(5, len(sub_folders)))
-        for i, folder in enumerate(sub_folders):
-            imgs_sub, vids_sub = list_media(folder["id"])
-            count = len(imgs_sub) + len(vids_sub)
-            with cols[i % 5]:
-                if st.button(f"📁 {folder['name']}  ({count})", key=f"sub_{folder['id']}"):
-                    st.session_state.nav_stack = nav + [{"id": folder["id"], "name": folder["name"]}]
-                    st.session_state.page = 0
-                    st.rerun()
+# Group selected but no event chosen → show hint
+if display_folder_id == "__group__":
+    st.info("👆 בחר אירוע כדי לראות תמונות")
+    st.stop()
 
+sub_folders = idx_subfolders(display_folder_id, idx)
 
-# ── Load media ────────────────────────────────────────────────────────────────
+# at_intermediate: true when at group level (nav[0] is __group__, no event yet)
+if not st.session_state.search_q:
+    at_intermediate = bool(sub_folders) and (
+        nav_depth == 0 or (with_years and nav_depth == 1
+                           and nav[0].get("id") != "__group__")
+    )
+else:
+    at_intermediate = False
 
-images, videos = list_media_recursive(display_folder_id)
+if at_intermediate:
+    images, videos = idx_media(display_folder_id, idx)
+else:
+    images, videos = idx_media_recursive(display_folder_id, idx)
+
 total = len(images) + len(videos)
 
 if total == 0:
-    st.info("אין קבצי מדיה בתיקייה זו")
+    if at_intermediate:
+        st.info("👆 בחר אירוע כדי לראות תמונות")
+    else:
+        st.info("אין קבצי מדיה בתיקייה זו")
     st.stop()
 
-# Filter buttons (act as stat pills + toggle)
+
+# ── Filter buttons ────────────────────────────────────────────────────────────
+
 f = st.session_state.media_filter
 fc1, fc2, fc3, _ = st.columns([1, 1, 1, 5])
 with fc1:
@@ -449,7 +501,6 @@ with fc3:
 
 st.divider()
 
-# Apply filter
 cur_filter = st.session_state.media_filter
 if cur_filter == "images":
     filtered = images
@@ -458,35 +509,58 @@ elif cur_filter == "videos":
 else:
     filtered = images + videos
 
-# Reset page + clear modal when folder or filter changes
+# Reset page when folder changes
 nav_key = display_folder_id + cur_filter
 if st.session_state.get("_last_path") != nav_key:
     st.session_state.page      = 0
     st.session_state.modal_img = None
+    st.session_state.media_filter = "all"
     st.session_state["_last_path"] = nav_key
+    cur_filter = "all"
+    filtered   = images + videos
 
 page    = st.session_state.page
-start   = page * PAGE_SIZE
 n_pages = max(1, (len(filtered) + PAGE_SIZE - 1) // PAGE_SIZE)
-
+start   = page * PAGE_SIZE
 page_media  = filtered[start : start + PAGE_SIZE]
 page_images = [f for f in page_media if f.get("mimeType") in IMG_MIME]
 page_videos = [f for f in page_media if f.get("mimeType") in VID_MIME]
 
 
-# ── Thumbnail grid ────────────────────────────────────────────────────────────
-
 COLS = 5
 if page_images:
     rows = [page_images[i : i + COLS] for i in range(0, len(page_images), COLS)]
-    for row in rows:
+    for row_i, row in enumerate(rows):
         cols = st.columns(COLS)
-        for col, file in zip(cols, row):
+        for col_i, (col, file) in enumerate(zip(cols, row)):
             with col:
-                st.image(thumb_url(file["id"], 240))
+                thumb_path = os.path.join(THUMB_DIR, f"{file['id']}.jpg")
+                shown = False
+                if os.path.exists(thumb_path):
+                    try:
+                        with open(thumb_path, "rb") as tf:
+                            st.image(tf.read(), use_container_width=True)
+                        shown = True
+                    except Exception:
+                        pass   # fall through to API
+                if not shown:
+                    try:
+                        data = get_thumbnail_bytes(file["id"])
+                        if data:
+                            st.image(data, use_container_width=True)
+                            shown = True
+                    except Exception:
+                        pass
+                if not shown:
+                    st.markdown(
+                        '<div style="width:100%;aspect-ratio:1;background:#f3f4f6;'
+                        'border-radius:6px;display:flex;align-items:center;'
+                        'justify-content:center;font-size:28px;color:#9ca3af;">📷</div>',
+                        unsafe_allow_html=True,
+                    )
                 if st.button("🔍", key=f"zoom_{file['id']}", help=file["name"],
                              use_container_width=True):
-                    st.session_state.modal_img = file["id"]
+                    st.session_state.modal_img = file
 
 if page_videos:
     st.markdown("#### 🎬 סרטונים")
@@ -524,7 +598,7 @@ with p3:
             st.rerun()
 
 
-# ── Image modal — called last so first click suffices ─────────────────────────
+# ── Modal ─────────────────────────────────────────────────────────────────────
 
 if st.session_state.modal_img:
     image_modal(st.session_state.modal_img)
