@@ -15,7 +15,7 @@ ROOT_ID   = st.secrets["DRIVE_ROOT_FOLDER_ID"]
 THUMB_DIR = "static/thumbs"
 
 CATEGORIES = [
-    ("משפחה - חיי יום יום", "👨‍👩‍👧‍👦"),
+    ("משפחה - לפי שנים",    "👨‍👩‍👧‍👦"),
     ("אירועים משפחתיים",    "🎉"),
     ("טיולים",               "✈️"),
     ("תמונות סרוקות",        "🗃️"),
@@ -368,11 +368,12 @@ if not st.session_state.search_q:
                     st.session_state.page = 0
                     st.rerun()
     else:
-        active_folder = nav[0]["name"] if nav else None
+        # Level 1 — folders directly under category
+        active_l1 = nav[0]["name"] if nav else None
         if cat_folders:
             folder_names = [f["name"] for f in cat_folders]
             st.markdown("**תיקייה**")
-            ev_result = pill_row(folder_names, active_folder, "ev", n_cols=4, all_label="הכל")
+            ev_result = pill_row(folder_names, active_l1, "ev", n_cols=4, all_label="הכל")
             if ev_result != "NO_CHANGE":
                 if ev_result is None:
                     st.session_state.nav_stack = []
@@ -381,6 +382,24 @@ if not st.session_state.search_q:
                     st.session_state.nav_stack = [{"id": fid, "name": ev_result}] if fid else []
                 st.session_state.page = 0
                 st.rerun()
+
+        # Level 2 — sub-folders inside selected folder (e.g. "צבא אייל" → "גיוס אייל")
+        if nav:
+            l2_folders = idx_subfolders(nav[0]["id"], idx)
+            if l2_folders:
+                l2_names   = [f["name"] for f in l2_folders]
+                active_l2  = nav[1]["name"] if len(nav) >= 2 else None
+                st.markdown("**תת-תיקייה**")
+                l2_result = pill_row(l2_names, active_l2, "l2", n_cols=4, all_label="הכל")
+                if l2_result != "NO_CHANGE":
+                    if l2_result is None:
+                        st.session_state.nav_stack = [nav[0]]
+                    else:
+                        l2id = idx_find_folder(nav[0]["id"], l2_result, idx)
+                        if l2id:
+                            st.session_state.nav_stack = [nav[0], {"id": l2id, "name": l2_result}]
+                    st.session_state.page = 0
+                    st.rerun()
 
     nav       = st.session_state.nav_stack
     nav_depth = len(nav)
@@ -449,12 +468,16 @@ if display_folder_id == "__group__":
 
 sub_folders = idx_subfolders(display_folder_id, idx)
 
-# at_intermediate: true when at group level (nav[0] is __group__, no event yet)
+# at_intermediate: show hint instead of media when sub-folders exist but none selected
 if not st.session_state.search_q:
-    at_intermediate = bool(sub_folders) and (
-        nav_depth == 0 or (with_years and nav_depth == 1
-                           and nav[0].get("id") != "__group__")
-    )
+    if with_years:
+        # year categories: intermediate at cat root OR year selected (no event yet)
+        at_intermediate = bool(sub_folders) and (
+            nav_depth == 0 or (nav_depth == 1 and nav[0].get("id") != "__group__")
+        )
+    else:
+        # non-year categories: intermediate at cat root OR event selected (no sub-folder yet)
+        at_intermediate = bool(sub_folders) and nav_depth <= 1
 else:
     at_intermediate = False
 
