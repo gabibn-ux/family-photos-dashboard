@@ -100,8 +100,14 @@ body {
   text-overflow: ellipsis;
   transition: background 0.1s;
 }
-.tree-btn:hover  { background: #374151; color: #fff; }
-.tree-btn.active { background: var(--accent); color: #fff; }
+.tree-btn:hover        { background: #374151; color: #fff; }
+.tree-btn.active       { background: var(--accent); color: #fff; }
+.tree-btn.tree-group-hdr {
+  color: #93c5fd;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+}
 
 .tree-children          { padding-right: 14px; }
 .tree-children.collapsed { display: none; }
