@@ -5,6 +5,10 @@ const IMG_MIME = new Set([
   "image/jpeg","image/jpg","image/png","image/heic","image/heif",
   "image/webp","image/gif","image/bmp","image/tiff",
 ]);
+const VID_MIME = new Set([
+  "video/mp4","video/quicktime","video/x-msvideo",
+  "video/x-matroska","video/mpeg","video/3gpp",
+]);
 const PAGE_SIZE = 24;
 const COLS      = 5;
 
@@ -73,15 +77,21 @@ function subfolders(fid) {
     .filter(x => x.name);
 }
 
-function collectImages(fid, out = []) {
+function collectMedia(fid, out = []) {
   const f = IDX.folders[fid];
   if (!f) return out;
   for (const fileId of (f.files || [])) {
     const file = IDX.files[fileId];
-    if (file && IMG_MIME.has(file.mime)) out.push(fileId);
+    if (file && (IMG_MIME.has(file.mime) || VID_MIME.has(file.mime))) out.push(fileId);
   }
-  for (const subId of (f.folders || [])) collectImages(subId, out);
+  for (const subId of (f.folders || [])) collectMedia(subId, out);
   return out;
+}
+// Keep alias for callers
+const collectImages = collectMedia;
+
+function isVideo(fid) {
+  return VID_MIME.has(IDX.files[fid]?.mime);
 }
 
 function hasYearStructure(subs) {
@@ -493,6 +503,7 @@ function renderGrid(pageIds, groupedByYear, globalStart) {
 
 function makeThumb(fid, globalIdx) {
   const file = IDX.files[fid];
+  const vid  = isVideo(fid);
   const wrap = document.createElement("div");
   wrap.className = "thumb-wrap";
 
@@ -503,9 +514,17 @@ function makeThumb(fid, globalIdx) {
   img.alt        = file?.name || "";
   img.title      = file?.name || "";
   img.onerror    = () => { img.src = PLACEHOLDER_SVG; img.style.objectFit = "contain"; };
-  img.onclick    = () => openModal(globalIdx);
 
   wrap.appendChild(img);
+
+  if (vid) {
+    const icon = document.createElement("div");
+    icon.className = "play-icon";
+    icon.innerHTML = "▶";
+    wrap.appendChild(icon);
+  }
+
+  wrap.onclick = () => openModal(globalIdx);
   return wrap;
 }
 
@@ -564,19 +583,41 @@ function showModalImage() {
   const fid  = S.modalFiles[S.modalIdx];
   if (!fid) return;
   const file = IDX.files[fid];
+  const vid  = isVideo(fid);
+
+  const wrap = document.getElementById("modal-img-wrap");
   const mImg = document.getElementById("modal-img");
   const spin = document.getElementById("modal-spinner");
 
-  mImg.style.opacity  = "0";
-  spin.style.display  = "block";
+  // Remove any previous video iframe
+  const oldIframe = wrap.querySelector("iframe");
+  if (oldIframe) oldIframe.remove();
+  mImg.style.display = "";
+  spin.style.display = "none";
 
-  mImg.onload  = () => { mImg.style.opacity = "1"; spin.style.display = "none"; };
-  mImg.onerror = () => {
-    mImg.src = `./static/thumbs/${fid}.jpg`;
-    spin.style.display = "none";
-    mImg.style.opacity = "1";
-  };
-  mImg.src = `./static/modal/${fid}.jpg`;
+  if (vid) {
+    // Show embedded Drive video player
+    mImg.style.display = "none";
+    const iframe = document.createElement("iframe");
+    iframe.src             = `https://drive.google.com/file/d/${fid}/preview`;
+    iframe.className       = "modal-video";
+    iframe.allow           = "autoplay";
+    iframe.allowFullscreen = true;
+    iframe.setAttribute("allowfullscreen", "");
+    wrap.appendChild(iframe);
+  } else {
+    // Show image
+    mImg.style.opacity = "0";
+    spin.style.display = "block";
+
+    mImg.onload  = () => { mImg.style.opacity = "1"; spin.style.display = "none"; };
+    mImg.onerror = () => {
+      mImg.src = `./static/thumbs/${fid}.jpg`;
+      spin.style.display = "none";
+      mImg.style.opacity = "1";
+    };
+    mImg.src = `./static/modal/${fid}.jpg`;
+  }
 
   document.getElementById("modal-name").textContent = file?.name || "";
   document.getElementById("modal-drive-link").href  =
@@ -596,6 +637,11 @@ function stepModal(delta) {
 function closeModal() {
   document.getElementById("modal").hidden = true;
   document.getElementById("modal-img").src = "";
+  // Stop video playback by removing iframe
+  const wrap = document.getElementById("modal-img-wrap");
+  const iframe = wrap.querySelector("iframe");
+  if (iframe) iframe.remove();
+  document.getElementById("modal-img").style.display = "";
 }
 
 // ── Keyboard ──────────────────────────────────────────────────────────────────

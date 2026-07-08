@@ -216,3 +216,24 @@ body {
   padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 14px;
 }
 #modal-close:hover { background: #ef4444; }
+
+/* ── Video play icon overlay ─────────────────────────────────────────────────── */
+.play-icon {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.35);
+  color: #fff; font-size: 28px;
+  pointer-events: none;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+}
+.thumb-wrap:hover .play-icon { background: rgba(0,0,0,0.52); }
+
+/* ── Video modal iframe ───────────────────────────────────────────────────────── */
+.modal-video {
+  display: block;
+  width: min(92vw, 960px);
+  height: min(70vh, 540px);
+  border: none;
+  background: #000;
+}
