@@ -86,7 +86,7 @@ def download_one(file_id, fdata):
     if mime in VID_MIME:
         # Use Drive thumbnail which often works for videos too
         pass
-    url  = f"https://drive.google.com/thumbnail?id={file_id}&sz=w120"
+    url  = f"https://drive.google.com/thumbnail?id={file_id}&sz=w400"
     resp = _req.get(url, headers={"Authorization": f"Bearer {get_token()}"},
                     timeout=20)
     content = resp.content

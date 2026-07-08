@@ -510,10 +510,20 @@ function makeThumb(fid, globalIdx) {
   const img      = document.createElement("img");
   img.loading    = "lazy";
   img.decoding   = "async";
-  img.src        = `./static/thumbs/${fid}.jpg`;
+  // Use modal-size image (400px) for sharp display in the grid
+  img.src        = `./static/modal/${fid}.jpg`;
   img.alt        = file?.name || "";
   img.title      = file?.name || "";
-  img.onerror    = () => { img.src = PLACEHOLDER_SVG; img.style.objectFit = "contain"; };
+  img.onerror    = () => {
+    // Fallback: try small thumb, then placeholder
+    if (!img.dataset.triedThumb) {
+      img.dataset.triedThumb = "1";
+      img.src = `./static/thumbs/${fid}.jpg`;
+    } else {
+      img.src = PLACEHOLDER_SVG;
+      img.style.objectFit = "contain";
+    }
+  };
 
   wrap.appendChild(img);
 
