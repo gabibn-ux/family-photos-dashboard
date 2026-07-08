@@ -177,6 +177,33 @@ st.markdown("""
   .stImage p { font-size: 11px; color: #9ca3af; text-align: center; }
   section[data-testid="stSidebar"] { display: none; }
   [data-testid="stDialog"] button[data-testid="stBaseButton-headerNoPadding"] { display: none !important; }
+
+  /* ── Clickable thumbnails: transparent zoom button overlays the image ── */
+  div[data-testid="stVerticalBlock"]:has(div[data-testid="stImage"]) {
+    position: relative;
+  }
+  div[data-testid="stVerticalBlock"]:has(div[data-testid="stImage"]) > div:has(div[data-testid="stButton"]) {
+    position: absolute !important;
+    inset: 0;
+    z-index: 5;
+  }
+  div[data-testid="stVerticalBlock"]:has(div[data-testid="stImage"]) > div:has(div[data-testid="stButton"]) button {
+    width: 100% !important;
+    height: 100% !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: transparent !important;
+    cursor: zoom-in !important;
+    border-radius: 6px !important;
+    font-size: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  div[data-testid="stVerticalBlock"]:has(div[data-testid="stImage"]) > div:has(div[data-testid="stButton"]) button:hover {
+    background: rgba(0,0,0,0.07) !important;
+    box-shadow: inset 0 0 0 3px rgba(255,255,255,0.8) !important;
+  }
 </style>
 """, unsafe_allow_html=True)
 
@@ -581,7 +608,7 @@ if page_images:
                         'justify-content:center;font-size:28px;color:#9ca3af;">📷</div>',
                         unsafe_allow_html=True,
                     )
-                if st.button("🔍", key=f"zoom_{file['id']}", help=file["name"],
+                if st.button("​", key=f"zoom_{file['id']}", help=file["name"],
                              use_container_width=True):
                     st.session_state.modal_img = file
 
