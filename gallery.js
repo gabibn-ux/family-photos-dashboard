@@ -395,11 +395,14 @@ function renderContent(catId, subs, isYear) {
     return;
   }
 
-  // Sort: images first, then videos, then audio
+  // Sort: images first, then videos, then audio — within each year group
   const mediaRank = fid => isAudio(fid) ? 2 : isVideo(fid) ? 1 : 0;
-  fileIds.sort((a, b) => mediaRank(a) - mediaRank(b));
   if (groupedByYear) {
+    // Sort within each year (keeps year order intact, moves media to end of each year)
     groupedByYear.forEach(g => g.ids.sort((a, b) => mediaRank(a) - mediaRank(b)));
+    fileIds = groupedByYear.flatMap(g => g.ids);   // rebuild flat list from sorted groups
+  } else {
+    fileIds.sort((a, b) => mediaRank(a) - mediaRank(b));
   }
 
   const mediaCount = fileIds.length;
@@ -649,18 +652,22 @@ function showModalImage() {
     iframe.setAttribute("allowfullscreen", "");
     wrap.appendChild(iframe);
   } else if (aud) {
-    // Show audio player via Drive embed
+    // Show audio player — HTML5 player via Drive download URL + Drive link fallback
     mImg.style.display = "none";
     const audWrap = document.createElement("div");
     audWrap.className = "modal-audio-wrap";
+    // Drive download URL works for audio even with old 0B5- IDs when user is signed in
+    const driveUrl  = `https://drive.google.com/file/d/${fid}/view`;
+    const audioSrc  = `https://drive.google.com/uc?export=download&id=${fid}`;
     audWrap.innerHTML = `
       <div class="modal-audio-icon">🎵</div>
       <div class="modal-audio-name">${file?.name || ""}</div>
-      <iframe
-        src="https://drive.google.com/file/d/${fid}/preview"
-        class="modal-audio-frame"
-        allow="autoplay"
-        allowfullscreen></iframe>`;
+      <audio controls class="modal-audio-player" crossorigin="anonymous">
+        <source src="${audioSrc}" type="${file?.mime || 'audio/wav'}">
+      </audio>
+      <a class="modal-audio-drive-btn" href="${driveUrl}" target="_blank" rel="noopener">
+        🔗 פתח ב-Drive לנגן
+      </a>`;
     wrap.appendChild(audWrap);
   } else {
     // Show image

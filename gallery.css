@@ -248,10 +248,17 @@ body {
   font-size: 14px; color: var(--gray-400);
   text-align: center; max-width: 500px;
 }
-.modal-audio-frame {
-  width: min(90vw, 640px); height: 80px;
-  border: none; border-radius: 8px;
+.modal-audio-player {
+  width: min(90vw, 500px);
+  border-radius: 8px;
+  outline: none;
 }
+.modal-audio-drive-btn {
+  color: #93c5fd; font-size: 14px; text-decoration: none;
+  padding: 6px 16px; border: 1px solid #374151;
+  border-radius: 20px; margin-top: 4px;
+}
+.modal-audio-drive-btn:hover { background: #374151; }
 
 /* ── Video play icon overlay ─────────────────────────────────────────────────── */
 .play-icon {
