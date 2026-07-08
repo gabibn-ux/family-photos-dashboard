@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ארכיון תמונות משפחה 📸</title>
+  <link rel="stylesheet" href="gallery.css">
+</head>
+<body>
+
+  <!-- ── Sidebar ─────────────────────────────────────────────────── -->
+  <aside id="sidebar">
+    <div id="sidebar-header">
+      <span id="logo">📸</span>
+      <span id="logo-title">ארכיון משפחתי</span>
+    </div>
+    <input id="search" type="search" placeholder="חיפוש תיקייה…" autocomplete="off">
+    <div id="folder-tree"></div>
+  </aside>
+
+  <!-- ── Main content ────────────────────────────────────────────── -->
+  <main id="content">
+    <div id="breadcrumb"></div>
+    <div id="toolbar">
+      <span id="photo-count"></span>
+    </div>
+    <div id="grid"></div>
+    <div id="loading" hidden>
+      <div class="spinner"></div>
+      <span>טוען…</span>
+    </div>
+  </main>
+
+  <!-- ── Modal ───────────────────────────────────────────────────── -->
+  <div id="modal" hidden>
+    <div id="modal-bg"></div>
+    <div id="modal-box">
+      <div id="modal-img-wrap">
+        <img id="modal-img" alt="">
+        <div class="modal-spinner" id="modal-spinner"></div>
+      </div>
+      <div id="modal-footer">
+        <p id="modal-name"></p>
+        <div id="modal-actions">
+          <button id="modal-prev" title="הקודם">‹</button>
+          <button id="modal-next" title="הבא">›</button>
+          <a id="modal-drive-link" target="_blank" rel="noopener">🔗 Drive</a>
+          <button id="modal-close">✕</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="gallery.js"></script>
+</body>
+</html>
