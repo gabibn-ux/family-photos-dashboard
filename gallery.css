@@ -248,20 +248,19 @@ body {
   font-size: 14px; color: var(--gray-400);
   text-align: center; max-width: 500px;
 }
-.modal-audio-frame {
-  width: min(90vw, 640px);
-  height: 300px;
-  border: none;
-  border-radius: 8px;
-  background: #000;
+.modal-audio-play-btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: var(--blue); color: #fff;
+  font-size: 18px; font-weight: 700;
+  padding: 14px 36px; border-radius: 40px;
+  text-decoration: none; margin-top: 8px;
+  transition: background 0.15s;
 }
-.modal-audio-drive-btn {
-  color: #93c5fd; font-size: 14px; text-decoration: none;
-  padding: 6px 16px; border: 1px solid #374151;
-  border-radius: 20px; margin-top: 4px;
-  display: inline-block;
+.modal-audio-play-btn:hover { background: var(--blue-dark); }
+.modal-audio-hint {
+  font-size: 12px; color: var(--gray-600);
+  margin-top: 8px;
 }
-.modal-audio-drive-btn:hover { background: #374151; }
 
 /* ── Video play icon overlay ─────────────────────────────────────────────────── */
 .play-icon {

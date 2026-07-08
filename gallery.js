@@ -52,7 +52,7 @@ const S = {
 async function init() {
   showLoading(true);
   try {
-    IDX = await fetch("./static/index.json?v=20250708").then(r => r.json());
+    IDX = await fetch("./static/index.json?v=20250708b").then(r => r.json());
   } catch (e) {
     document.getElementById("grid").innerHTML =
       `<p class="empty-msg">שגיאה בטעינת index.json: ${e.message}</p>`;
@@ -652,7 +652,7 @@ function showModalImage() {
     iframe.setAttribute("allowfullscreen", "");
     wrap.appendChild(iframe);
   } else if (aud) {
-    // Show audio via Google Drive embedded preview (has built-in player)
+    // Audio: open in Drive (iframe can't play private WAV files cross-origin)
     mImg.style.display = "none";
     const audWrap = document.createElement("div");
     audWrap.className = "modal-audio-wrap";
@@ -660,14 +660,10 @@ function showModalImage() {
     audWrap.innerHTML = `
       <div class="modal-audio-icon">🎵</div>
       <div class="modal-audio-name">${file?.name || ""}</div>
-      <iframe
-        src="https://drive.google.com/file/d/${fid}/preview"
-        class="modal-audio-frame"
-        allow="autoplay"
-        allowfullscreen></iframe>
-      <a class="modal-audio-drive-btn" href="${driveUrl}" target="_blank" rel="noopener">
-        🔗 פתח ב-Drive
-      </a>`;
+      <a class="modal-audio-play-btn" href="${driveUrl}" target="_blank" rel="noopener">
+        ▶ לחץ לנגן
+      </a>
+      <div class="modal-audio-hint">הקובץ ייפתח ב-Google Drive לניגון</div>`;
     wrap.appendChild(audWrap);
   } else {
     // Show image
