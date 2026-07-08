@@ -217,6 +217,42 @@ body {
 }
 #modal-close:hover { background: #ef4444; }
 
+/* ── Audio thumbnail card ────────────────────────────────────────────────────── */
+.thumb-audio {
+  cursor: pointer;
+  background: linear-gradient(135deg, #1e3a5f 0%, #0f2040 100%);
+}
+.audio-card {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  width: 100%; height: 100%; padding: 8px;
+  gap: 6px;
+}
+.audio-big-icon { font-size: 36px; line-height: 1; }
+.audio-name {
+  font-size: 10px; color: #93c5fd;
+  text-align: center; word-break: break-all;
+  overflow: hidden; display: -webkit-box;
+  -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+}
+.thumb-audio:hover { filter: brightness(1.2); }
+
+/* ── Audio modal player ───────────────────────────────────────────────────────── */
+.modal-audio-wrap {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 32px 24px; gap: 16px; width: 100%;
+}
+.modal-audio-icon { font-size: 64px; }
+.modal-audio-name {
+  font-size: 14px; color: var(--gray-400);
+  text-align: center; max-width: 500px;
+}
+.modal-audio-frame {
+  width: min(90vw, 640px); height: 80px;
+  border: none; border-radius: 8px;
+}
+
 /* ── Video play icon overlay ─────────────────────────────────────────────────── */
 .play-icon {
   position: absolute; inset: 0;

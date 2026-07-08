@@ -9,7 +9,12 @@ const VID_MIME = new Set([
   "video/mp4","video/quicktime","video/x-msvideo",
   "video/x-matroska","video/mpeg","video/3gpp",
 ]);
-const PAGE_SIZE = 20;
+const AUD_MIME = new Set([
+  "audio/mpeg","audio/mp3","audio/mp4","audio/m4a","audio/x-m4a",
+  "audio/wav","audio/wave","audio/ogg","audio/aac","audio/flac",
+  "audio/x-flac","audio/webm","audio/3gpp",
+]);
+const PAGE_SIZE = 40;
 const COLS      = 4;
 
 const CATEGORIES = [
@@ -82,7 +87,7 @@ function collectMedia(fid, out = []) {
   if (!f) return out;
   for (const fileId of (f.files || [])) {
     const file = IDX.files[fileId];
-    if (file && (IMG_MIME.has(file.mime) || VID_MIME.has(file.mime))) out.push(fileId);
+    if (file && (IMG_MIME.has(file.mime) || VID_MIME.has(file.mime) || AUD_MIME.has(file.mime))) out.push(fileId);
   }
   for (const subId of (f.folders || [])) collectMedia(subId, out);
   return out;
@@ -92,6 +97,9 @@ const collectImages = collectMedia;
 
 function isVideo(fid) {
   return VID_MIME.has(IDX.files[fid]?.mime);
+}
+function isAudio(fid) {
+  return AUD_MIME.has(IDX.files[fid]?.mime);
 }
 
 function hasYearStructure(subs) {
@@ -504,34 +512,42 @@ function renderGrid(pageIds, groupedByYear, globalStart) {
 function makeThumb(fid, globalIdx) {
   const file = IDX.files[fid];
   const vid  = isVideo(fid);
+  const aud  = isAudio(fid);
   const wrap = document.createElement("div");
   wrap.className = "thumb-wrap";
 
-  const img      = document.createElement("img");
-  img.loading    = "lazy";
-  img.decoding   = "async";
-  // Use modal-size image (400px) for sharp display in the grid
-  img.src        = `./static/modal/${fid}.jpg`;
-  img.alt        = file?.name || "";
-  img.title      = file?.name || "";
-  img.onerror    = () => {
-    // Fallback: try small thumb, then placeholder
-    if (!img.dataset.triedThumb) {
-      img.dataset.triedThumb = "1";
-      img.src = `./static/thumbs/${fid}.jpg`;
-    } else {
-      img.src = PLACEHOLDER_SVG;
-      img.style.objectFit = "contain";
-    }
-  };
-
-  wrap.appendChild(img);
-
-  if (vid) {
+  if (aud) {
+    // Audio: show a styled card with music icon instead of image
+    wrap.classList.add("thumb-audio");
     const icon = document.createElement("div");
-    icon.className = "play-icon";
-    icon.innerHTML = "▶";
+    icon.className = "audio-card";
+    icon.innerHTML = `<span class="audio-big-icon">🎵</span><span class="audio-name">${file?.name || ""}</span>`;
     wrap.appendChild(icon);
+  } else {
+    const img      = document.createElement("img");
+    img.loading    = "lazy";
+    img.decoding   = "async";
+    // Use modal-size image (400px) for sharp display in the grid
+    img.src        = `./static/modal/${fid}.jpg`;
+    img.alt        = file?.name || "";
+    img.title      = file?.name || "";
+    img.onerror    = () => {
+      if (!img.dataset.triedThumb) {
+        img.dataset.triedThumb = "1";
+        img.src = `./static/thumbs/${fid}.jpg`;
+      } else {
+        img.src = PLACEHOLDER_SVG;
+        img.style.objectFit = "contain";
+      }
+    };
+    wrap.appendChild(img);
+
+    if (vid) {
+      const icon = document.createElement("div");
+      icon.className = "play-icon";
+      icon.innerHTML = "▶";
+      wrap.appendChild(icon);
+    }
   }
 
   wrap.onclick = () => openModal(globalIdx);
@@ -594,14 +610,17 @@ function showModalImage() {
   if (!fid) return;
   const file = IDX.files[fid];
   const vid  = isVideo(fid);
+  const aud  = isAudio(fid);
 
   const wrap = document.getElementById("modal-img-wrap");
   const mImg = document.getElementById("modal-img");
   const spin = document.getElementById("modal-spinner");
 
-  // Remove any previous video iframe
+  // Clean up any previous media
   const oldIframe = wrap.querySelector("iframe");
   if (oldIframe) oldIframe.remove();
+  const oldAudio = wrap.querySelector(".modal-audio-wrap");
+  if (oldAudio) oldAudio.remove();
   mImg.style.display = "";
   spin.style.display = "none";
 
@@ -615,6 +634,20 @@ function showModalImage() {
     iframe.allowFullscreen = true;
     iframe.setAttribute("allowfullscreen", "");
     wrap.appendChild(iframe);
+  } else if (aud) {
+    // Show audio player via Drive embed
+    mImg.style.display = "none";
+    const audWrap = document.createElement("div");
+    audWrap.className = "modal-audio-wrap";
+    audWrap.innerHTML = `
+      <div class="modal-audio-icon">🎵</div>
+      <div class="modal-audio-name">${file?.name || ""}</div>
+      <iframe
+        src="https://drive.google.com/file/d/${fid}/preview"
+        class="modal-audio-frame"
+        allow="autoplay"
+        allowfullscreen></iframe>`;
+    wrap.appendChild(audWrap);
   } else {
     // Show image
     mImg.style.opacity = "0";
@@ -647,10 +680,8 @@ function stepModal(delta) {
 function closeModal() {
   document.getElementById("modal").hidden = true;
   document.getElementById("modal-img").src = "";
-  // Stop video playback by removing iframe
   const wrap = document.getElementById("modal-img-wrap");
-  const iframe = wrap.querySelector("iframe");
-  if (iframe) iframe.remove();
+  wrap.querySelectorAll("iframe, .modal-audio-wrap").forEach(el => el.remove());
   document.getElementById("modal-img").style.display = "";
 }
 
