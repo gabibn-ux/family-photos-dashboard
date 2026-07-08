@@ -23,7 +23,7 @@ const CATEGORIES = [
   { name: "טיולים",              icon: "✈️"  },
   { name: "תמונות סרוקות",       icon: "🗃️"  },
   { name: "תמונות לא ממויינות",  icon: "📋"  },
-  { name: "אוכל",                icon: "🍽️"  },
+  // { name: "אוכל",             icon: "🍽️"  },  // הוסתר לפי בקשה
   { name: "ג׳וי",                icon: "🐕"  },
 ];
 
@@ -652,21 +652,21 @@ function showModalImage() {
     iframe.setAttribute("allowfullscreen", "");
     wrap.appendChild(iframe);
   } else if (aud) {
-    // Show audio player — HTML5 player via Drive download URL + Drive link fallback
+    // Show audio via Google Drive embedded preview (has built-in player)
     mImg.style.display = "none";
     const audWrap = document.createElement("div");
     audWrap.className = "modal-audio-wrap";
-    // Drive download URL works for audio even with old 0B5- IDs when user is signed in
-    const driveUrl  = `https://drive.google.com/file/d/${fid}/view`;
-    const audioSrc  = `https://drive.google.com/uc?export=download&id=${fid}`;
+    const driveUrl = `https://drive.google.com/file/d/${fid}/view`;
     audWrap.innerHTML = `
       <div class="modal-audio-icon">🎵</div>
       <div class="modal-audio-name">${file?.name || ""}</div>
-      <audio controls class="modal-audio-player" crossorigin="anonymous">
-        <source src="${audioSrc}" type="${file?.mime || 'audio/wav'}">
-      </audio>
+      <iframe
+        src="https://drive.google.com/file/d/${fid}/preview"
+        class="modal-audio-frame"
+        allow="autoplay"
+        allowfullscreen></iframe>
       <a class="modal-audio-drive-btn" href="${driveUrl}" target="_blank" rel="noopener">
-        🔗 פתח ב-Drive לנגן
+        🔗 פתח ב-Drive
       </a>`;
     wrap.appendChild(audWrap);
   } else {
