@@ -179,15 +179,17 @@ st.markdown("""
   [data-testid="stDialog"] button[data-testid="stBaseButton-headerNoPadding"] { display: none !important; }
 
   /* ── Clickable thumbnails: transparent zoom button overlays the image ── */
-  div[data-testid="stVerticalBlock"]:has(div[data-testid="stImage"]) {
+  /* Use > to target only the DIRECT parent stVerticalBlock of the image,
+     not outer ancestors that also contain images as deep descendants.     */
+  div[data-testid="stColumn"] div[data-testid="stVerticalBlock"]:has(> div > div[data-testid="stImage"]) {
     position: relative;
   }
-  div[data-testid="stVerticalBlock"]:has(div[data-testid="stImage"]) > div:has(div[data-testid="stButton"]) {
+  div[data-testid="stColumn"] div[data-testid="stVerticalBlock"]:has(> div > div[data-testid="stImage"]) > div:has(div[data-testid="stButton"]) {
     position: absolute !important;
     inset: 0;
     z-index: 5;
   }
-  div[data-testid="stVerticalBlock"]:has(div[data-testid="stImage"]) > div:has(div[data-testid="stButton"]) button {
+  div[data-testid="stColumn"] div[data-testid="stVerticalBlock"]:has(> div > div[data-testid="stImage"]) > div:has(div[data-testid="stButton"]) button {
     width: 100% !important;
     height: 100% !important;
     background: transparent !important;
@@ -200,7 +202,7 @@ st.markdown("""
     padding: 0 !important;
     margin: 0 !important;
   }
-  div[data-testid="stVerticalBlock"]:has(div[data-testid="stImage"]) > div:has(div[data-testid="stButton"]) button:hover {
+  div[data-testid="stColumn"] div[data-testid="stVerticalBlock"]:has(> div > div[data-testid="stImage"]) > div:has(div[data-testid="stButton"]) button:hover {
     background: rgba(0,0,0,0.07) !important;
     box-shadow: inset 0 0 0 3px rgba(255,255,255,0.8) !important;
   }
