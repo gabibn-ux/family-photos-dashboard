@@ -9,8 +9,8 @@ const VID_MIME = new Set([
   "video/mp4","video/quicktime","video/x-msvideo",
   "video/x-matroska","video/mpeg","video/3gpp",
 ]);
-const PAGE_SIZE = 24;
-const COLS      = 5;
+const PAGE_SIZE = 20;
+const COLS      = 4;
 
 const CATEGORIES = [
   { name: "משפחה - לפי שנים",   icon: "👨‍👩‍👧‍👦" },
