@@ -41,6 +41,12 @@ VID_MIME = {
     "video/mp4", "video/quicktime", "video/x-msvideo",
     "video/x-matroska", "video/mpeg", "video/3gpp",
 }
+AUD_MIME = {
+    "audio/mpeg", "audio/mp3", "audio/mp4", "audio/m4a", "audio/x-m4a",
+    "audio/wav", "audio/wave", "audio/ogg", "audio/aac", "audio/flac",
+    "audio/x-flac", "audio/webm", "audio/3gpp", "audio/x-wav",
+    "audio/vnd.dlna.adts",
+}
 FOLDER_MIME = "application/vnd.google-apps.folder"
 SKIP_NAMES  = {".claude"}
 
@@ -87,7 +93,7 @@ def walk(folder_id: str, parent_id=None, depth=0):
             }
             walk(item["id"], folder_id, depth + 1)
 
-        elif item["mimeType"] in IMG_MIME or item["mimeType"] in VID_MIME:
+        elif item["mimeType"] in IMG_MIME or item["mimeType"] in VID_MIME or item["mimeType"] in AUD_MIME:
             children_files.append(item["id"])
             files[item["id"]] = {
                 "name":   item["name"],

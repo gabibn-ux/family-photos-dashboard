@@ -395,8 +395,22 @@ function renderContent(catId, subs, isYear) {
     return;
   }
 
-  document.getElementById("photo-count").textContent =
-    fileIds.length ? `${fileIds.length} תמונות` : "";
+  // Sort: images first, then videos, then audio
+  const mediaRank = fid => isAudio(fid) ? 2 : isVideo(fid) ? 1 : 0;
+  fileIds.sort((a, b) => mediaRank(a) - mediaRank(b));
+  if (groupedByYear) {
+    groupedByYear.forEach(g => g.ids.sort((a, b) => mediaRank(a) - mediaRank(b)));
+  }
+
+  const mediaCount = fileIds.length;
+  const audCount   = fileIds.filter(isAudio).length;
+  const vidCount   = fileIds.filter(isVideo).length;
+  const imgCount   = mediaCount - vidCount - audCount;
+  let countParts   = [];
+  if (imgCount)  countParts.push(`${imgCount} תמונות`);
+  if (vidCount)  countParts.push(`${vidCount} סרטונים`);
+  if (audCount)  countParts.push(`${audCount} הקלטות`);
+  document.getElementById("photo-count").textContent = countParts.join(" · ") || "";
 
   // Paginate
   const nPages = Math.max(1, Math.ceil(fileIds.length / PAGE_SIZE));
