@@ -2,13 +2,21 @@
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const IMG_MIME = new Set([
-  "image/jpeg", "image/jpg", "image/png", "image/heic", "image/heif",
-  "image/webp", "image/gif", "image/bmp", "image/tiff",
+  "image/jpeg","image/jpg","image/png","image/heic","image/heif",
+  "image/webp","image/gif","image/bmp","image/tiff",
 ]);
+const PAGE_SIZE = 24;
+const COLS      = 5;
 
-// Categories with special sidebar treatment
-const CAT_FAMILY_YEARS = "משפחה - לפי שנים";   // sort by year
-const CAT_TRIPS        = "טיולים";               // group into 5-year buckets
+const CATEGORIES = [
+  { name: "משפחה - לפי שנים",   icon: "👨‍👩‍👧‍👦" },
+  { name: "אירועים משפחתיים",   icon: "🎉"  },
+  { name: "טיולים",              icon: "✈️"  },
+  { name: "תמונות סרוקות",       icon: "🗃️"  },
+  { name: "תמונות לא ממויינות",  icon: "📋"  },
+  { name: "אוכל",                icon: "🍽️"  },
+  { name: "ג׳וי",                icon: "🐕"  },
+];
 
 const PLACEHOLDER_SVG =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' " +
@@ -17,204 +25,52 @@ const PLACEHOLDER_SVG =
   "font-size='36' fill='%239ca3af'%3E%F0%9F%93%B7%3C/text%3E%3C/svg%3E";
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let IDX        = null;   // index.json content
-let curFolder  = null;   // currently shown folder id
-let curFiles   = [];     // current grid file ids (images only)
-let modalIdx   = 0;      // index into curFiles for modal
+let IDX = null;
+
+const S = {
+  catIdx:       0,        // CATEGORIES index
+  period:       null,     // { label, yearIds: [id,...] } — 5-year group, or null="all"
+  eventId:      null,     // folder id of chosen event/sub-folder, or null="all"
+  subFolderId:  null,     // 2nd-level sub-folder id for non-year cats
+  page:         0,
+  search:       "",
+  searchChosen: null,
+  modalFiles:   [],       // flat list of file ids currently in grid
+  modalIdx:     0,
+};
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 async function init() {
   showLoading(true);
   try {
-    IDX = await fetch("./static/index.json").then(r => {
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    });
+    IDX = await fetch("./static/index.json").then(r => r.json());
   } catch (e) {
     document.getElementById("grid").innerHTML =
-      `<p class="error">שגיאה בטעינת index.json: ${e.message}</p>`;
+      `<p class="empty-msg">שגיאה בטעינת index.json: ${e.message}</p>`;
     showLoading(false);
     return;
   }
 
-  buildTree(IDX.root, document.getElementById("folder-tree"), 0);
-  navigateTo(IDX.root);
-  showLoading(false);
-  setupSearch();
+  // Wire up static controls
+  document.getElementById("btn-home").onclick = goHome;
+  document.getElementById("search").addEventListener("input", onSearch);
   setupModal();
   setupKeyboard();
+
+  selectCat(0, true);
+  showLoading(false);
 }
 
-// ── Loading ───────────────────────────────────────────────────────────────────
 function showLoading(on) {
   document.getElementById("loading").hidden = !on;
 }
 
-// ── Folder Tree ───────────────────────────────────────────────────────────────
-
-/** Sort folder IDs by their numeric name (year), ascending. */
-function sortByYear(ids) {
-  return [...ids].sort((a, b) => {
-    const ya = parseInt(IDX.folders[a]?.name) || 0;
-    const yb = parseInt(IDX.folders[b]?.name) || 0;
-    return ya - yb;
-  });
-}
-
-/** Group an array of folder IDs (all named as years) into 5-year buckets.
- *  Returns [ { label: "2005–2009", ids: [...] }, ... ] sorted ascending. */
-function groupBy5Years(ids) {
-  const buckets = {};
-  for (const id of ids) {
-    const year = parseInt(IDX.folders[id]?.name) || 0;
-    const start = Math.floor(year / 5) * 5;
-    const label = `${start}–${start + 4}`;
-    (buckets[label] = buckets[label] || { start, ids: [] }).ids.push(id);
-  }
-  return Object.values(buckets)
-    .sort((a, b) => a.start - b.start)
-    .map(b => ({ label: `${b.start}–${b.start + 4}`, ids: sortByYear(b.ids) }));
-}
-
-/** Build a single folder row (toggle + name button). */
-function makeFolderRow(subId, depth) {
-  const sub  = IDX.folders[subId];
-  const li   = document.createElement("li");
-  const row  = document.createElement("div");
-  row.className = "tree-row";
-
-  const btn = document.createElement("button");
-  btn.className    = "tree-btn";
-  btn.textContent  = sub.name;
-  btn.dataset.fid  = subId;
-  btn.onclick = () => { navigateTo(subId); setActive(btn); };
-
-  if (sub.folders && sub.folders.length) {
-    const tog = document.createElement("button");
-    tog.className = "tree-toggle";
-    tog.textContent = "▶";
-    row.appendChild(tog);
-
-    const childWrap = document.createElement("div");
-    childWrap.className = "tree-children collapsed";
-    buildTree(subId, childWrap, depth + 1);
-
-    tog.onclick = (e) => {
-      e.stopPropagation();
-      const collapsed = childWrap.classList.toggle("collapsed");
-      tog.textContent = collapsed ? "▶" : "▼";
-    };
-    row.appendChild(btn);
-    li.appendChild(row);
-    li.appendChild(childWrap);
-  } else {
-    const sp = document.createElement("span");
-    sp.className = "tree-spacer";
-    row.appendChild(sp);
-    row.appendChild(btn);
-    li.appendChild(row);
-  }
-  return li;
-}
-
-/** Build a collapsible group header (for 5-year trip groups). */
-function makeGroupHeader(label, childIds, depth) {
-  const li  = document.createElement("li");
-  const row = document.createElement("div");
-  row.className = "tree-row";
-
-  const tog = document.createElement("button");
-  tog.className   = "tree-toggle";
-  tog.textContent = "▶";
-
-  const hdr = document.createElement("button");
-  hdr.className   = "tree-btn tree-group-hdr";
-  hdr.textContent = label;
-
-  const childWrap = document.createElement("div");
-  childWrap.className = "tree-children collapsed";
-
-  // Build children of this group
-  const ul2 = document.createElement("ul");
-  ul2.className = "tree-list";
-  for (const cid of childIds) ul2.appendChild(makeFolderRow(cid, depth + 1));
-  childWrap.appendChild(ul2);
-
-  const toggle = () => {
-    const collapsed = childWrap.classList.toggle("collapsed");
-    tog.textContent = collapsed ? "▶" : "▼";
-  };
-  tog.onclick = (e) => { e.stopPropagation(); toggle(); };
-  hdr.onclick = toggle;
-
-  row.appendChild(tog);
-  row.appendChild(hdr);
-  li.appendChild(row);
-  li.appendChild(childWrap);
-  return li;
-}
-
-function buildTree(fid, container, depth) {
+// ── Index helpers ─────────────────────────────────────────────────────────────
+function subfolders(fid) {
   const f = IDX.folders[fid];
-  if (!f || depth > 8) return;
-
-  const ul = document.createElement("ul");
-  ul.className = "tree-list";
-
-  let childIds = f.folders || [];
-
-  // ── משפחה לפי שנים: sort by year ascending ────────────────────────────
-  if (f.name === CAT_FAMILY_YEARS) {
-    childIds = sortByYear(childIds);
-    for (const subId of childIds) ul.appendChild(makeFolderRow(subId, depth));
-    container.appendChild(ul);
-    return;
-  }
-
-  // ── טיולים: group into 5-year buckets ─────────────────────────────────
-  if (f.name === CAT_TRIPS) {
-    const groups = groupBy5Years(childIds);
-    for (const g of groups) ul.appendChild(makeGroupHeader(g.label, g.ids, depth));
-    container.appendChild(ul);
-    return;
-  }
-
-  // ── Default: original order ────────────────────────────────────────────
-  for (const subId of childIds) ul.appendChild(makeFolderRow(subId, depth));
-  container.appendChild(ul);
-}
-
-function setActive(btn) {
-  document.querySelectorAll(".tree-btn.active")
-    .forEach(b => b.classList.remove("active"));
-  btn && btn.classList.add("active");
-}
-
-// ── Search ────────────────────────────────────────────────────────────────────
-function setupSearch() {
-  const input = document.getElementById("search");
-  input.addEventListener("input", () => {
-    const q = input.value.trim().toLowerCase();
-    document.querySelectorAll(".tree-btn").forEach(btn => {
-      const match = !q || btn.textContent.toLowerCase().includes(q);
-      btn.closest("li").style.display = match ? "" : "none";
-    });
-    // Show all children when searching
-    if (q) {
-      document.querySelectorAll(".tree-children").forEach(c => c.classList.remove("collapsed"));
-    }
-  });
-}
-
-// ── Navigation ────────────────────────────────────────────────────────────────
-function navigateTo(fid) {
-  curFolder = fid;
-  curFiles  = collectImages(fid);
-  renderBreadcrumb(fid);
-  renderGrid(curFiles);
-  document.getElementById("photo-count").textContent =
-    curFiles.length ? `${curFiles.length} תמונות` : "";
-  window.scrollTo({ top: 0 });
+  return (f?.folders || [])
+    .map(id => ({ id, name: IDX.folders[id]?.name || "" }))
+    .filter(x => x.name);
 }
 
 function collectImages(fid, out = []) {
@@ -228,58 +84,466 @@ function collectImages(fid, out = []) {
   return out;
 }
 
-// ── Breadcrumb ────────────────────────────────────────────────────────────────
-function renderBreadcrumb(fid) {
-  const path = [];
-  let cur = fid;
-  while (cur) {
-    const f = IDX.folders[cur];
-    if (!f) break;
-    path.unshift({ id: cur, name: f.name });
-    cur = f.parent;
-  }
-  // Skip the synthetic "root" entry in breadcrumb display
-  const display = path.filter(p => IDX.folders[p.id]?.name !== "root");
+function hasYearStructure(subs) {
+  if (!subs.length) return false;
+  const yearLike = subs.filter(s => /^\d{4}$/.test(s.name)).length;
+  return yearLike / subs.length >= 0.5;
+}
 
+function groupBy5Years(subs) {
+  const buckets = {};
+  const real = subs.filter(s => /^\d{4}$/.test(s.name));
+  real.sort((a, b) => +a.name - +b.name);
+  for (const s of real) {
+    const y = +s.name;
+    const start = Math.floor(y / 5) * 5;
+    const label = `${start}–${start + 4}`;
+    (buckets[label] = buckets[label] || { start, items: [] }).items.push(s);
+  }
+  return Object.values(buckets)
+    .sort((a, b) => a.start - b.start)
+    .map(b => ({ label: `${b.start}–${b.start+4}`, yearFolders: b.items }));
+}
+
+function findCatId(catName) {
+  const root = IDX.folders[IDX.root];
+  for (const cid of (root?.folders || [])) {
+    if (IDX.folders[cid]?.name === catName) return cid;
+  }
+  return null;
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function goHome() {
+  S.search        = "";
+  S.searchChosen  = null;
+  document.getElementById("search").value = "";
+  selectCat(S.catIdx, true);
+}
+
+function selectCat(idx, reset = false) {
+  S.catIdx = idx;
+  if (reset) {
+    S.period      = null;
+    S.eventId     = null;
+    S.subFolderId = null;
+    S.page        = 0;
+    S.search      = "";
+    S.searchChosen= null;
+    document.getElementById("search").value = "";
+  }
+
+  const catId = findCatId(CATEGORIES[idx].name);
+  if (!catId) { render(); return; }
+
+  const subs = subfolders(catId);
+  if (hasYearStructure(subs) && reset) {
+    // Auto-select most-recent period
+    const groups = groupBy5Years(subs);
+    if (groups.length) {
+      S.period  = groups[groups.length - 1];
+      S.eventId = null;
+    }
+  }
+  render();
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+function onSearch() {
+  S.search = document.getElementById("search").value.trim();
+  S.searchChosen = null;
+  S.page = 0;
+  render();
+}
+
+function searchFolders(q) {
+  const ql = q.toLowerCase();
+  const results = [];
+  const root = IDX.folders[IDX.root];
+  for (const catId of (root?.folders || [])) {
+    const catName = IDX.folders[catId]?.name || "";
+    for (const s1Id of (IDX.folders[catId]?.folders || [])) {
+      const s1Name = IDX.folders[s1Id]?.name || "";
+      if (ql && s1Name.toLowerCase().includes(ql))
+        results.push({ id: s1Id, path: `${catName} › ${s1Name}` });
+      for (const s2Id of (IDX.folders[s1Id]?.folders || [])) {
+        const s2Name = IDX.folders[s2Id]?.name || "";
+        if (ql && s2Name.toLowerCase().includes(ql))
+          results.push({ id: s2Id, path: `${catName} › ${s1Name} › ${s2Name}` });
+      }
+    }
+  }
+  return results.sort((a, b) => a.path.localeCompare(b.path, "he"));
+}
+
+// ── Main render ───────────────────────────────────────────────────────────────
+function render() {
+  renderCatNav();
+
+  if (S.search) {
+    renderSearch();
+    return;
+  }
+
+  const catId = findCatId(CATEGORIES[S.catIdx].name);
+  if (!catId) {
+    document.getElementById("sub-nav").innerHTML = "";
+    renderHint("לא נמצאה קטגוריה");
+    return;
+  }
+
+  const subs = subfolders(catId);
+  const isYear = hasYearStructure(subs);
+
+  renderSubNav(catId, subs, isYear);
+  renderContent(catId, subs, isYear);
+}
+
+// ── Category pills ────────────────────────────────────────────────────────────
+function renderCatNav() {
+  const nav  = document.getElementById("cat-nav");
+  const row1 = document.createElement("div"); row1.className = "pill-row";
+  const row2 = document.createElement("div"); row2.className = "pill-row";
+
+  CATEGORIES.forEach((cat, i) => {
+    const btn = mkBtn(`${cat.icon}  ${cat.name}`, i === S.catIdx);
+    btn.onclick = () => { selectCat(i, true); };
+    (i < 4 ? row1 : row2).appendChild(btn);
+  });
+
+  nav.innerHTML = "";
+  nav.appendChild(row1);
+  nav.appendChild(row2);
+}
+
+// ── Sub-nav ───────────────────────────────────────────────────────────────────
+function renderSubNav(catId, subs, isYear) {
+  const nav = document.getElementById("sub-nav");
+  nav.innerHTML = "";
+
+  if (isYear) {
+    const groups = groupBy5Years(subs);
+
+    // Period row
+    const pLabel = document.createElement("div"); pLabel.className = "sub-nav-label";
+    pLabel.textContent = "תקופה";
+    const pRow = document.createElement("div"); pRow.className = "pill-row";
+
+    // "הכל" pill
+    const allBtn = mkBtn("הכל", S.period === null);
+    allBtn.onclick = () => { S.period = null; S.eventId = null; S.page = 0; render(); };
+    pRow.appendChild(allBtn);
+
+    for (const g of groups) {
+      const active = S.period?.label === g.label;
+      const btn = mkBtn(g.label, active);
+      btn.onclick = () => {
+        S.period  = g;
+        S.eventId = null;
+        S.page    = 0;
+        render();
+      };
+      pRow.appendChild(btn);
+    }
+    nav.appendChild(pLabel);
+    nav.appendChild(pRow);
+
+    // Event row (when period chosen)
+    if (S.period) {
+      // Collect all sub-events from all year-folders in this period
+      const events = [];
+      for (const yf of S.period.yearFolders) {
+        const evSubs = subfolders(yf.id);
+        if (evSubs.length) {
+          for (const ev of evSubs)
+            events.push({ id: ev.id, display: `${yf.name} | ${ev.name}`, year: yf.name });
+        } else {
+          // Year folder has no sub-events → treat the year itself as clickable
+          events.push({ id: yf.id, display: yf.name, year: yf.name });
+        }
+      }
+
+      if (events.length) {
+        const eLabel = document.createElement("div"); eLabel.className = "sub-nav-label";
+        eLabel.textContent = "אירוע";
+        const eRow = document.createElement("div"); eRow.className = "pill-row";
+
+        const allEv = mkBtn("כל האירועים", S.eventId === null);
+        allEv.onclick = () => { S.eventId = null; S.page = 0; render(); };
+        eRow.appendChild(allEv);
+
+        for (const ev of events) {
+          const active = S.eventId === ev.id;
+          const btn = mkBtn(ev.display, active);
+          btn.onclick = () => { S.eventId = ev.id; S.page = 0; render(); };
+          eRow.appendChild(btn);
+        }
+        nav.appendChild(eLabel);
+        nav.appendChild(eRow);
+      }
+    }
+
+  } else {
+    // Non-year cat — level 1 folders
+    if (subs.length) {
+      const lbl = document.createElement("div"); lbl.className = "sub-nav-label";
+      lbl.textContent = "תיקייה";
+      const row = document.createElement("div"); row.className = "pill-row";
+
+      const allBtn = mkBtn("הכל", S.eventId === null);
+      allBtn.onclick = () => { S.eventId = null; S.subFolderId = null; S.page = 0; render(); };
+      row.appendChild(allBtn);
+
+      for (const s of subs) {
+        const active = S.eventId === s.id;
+        const btn = mkBtn(s.name, active);
+        btn.onclick = () => { S.eventId = s.id; S.subFolderId = null; S.page = 0; render(); };
+        row.appendChild(btn);
+      }
+      nav.appendChild(lbl);
+      nav.appendChild(row);
+    }
+
+    // Level 2 sub-folders (when folder chosen)
+    if (S.eventId) {
+      const sub2 = subfolders(S.eventId);
+      if (sub2.length) {
+        const lbl2 = document.createElement("div"); lbl2.className = "sub-nav-label";
+        lbl2.textContent = "תת-תיקייה";
+        const row2 = document.createElement("div"); row2.className = "pill-row";
+
+        const allBtn2 = mkBtn("הכל", S.subFolderId === null);
+        allBtn2.onclick = () => { S.subFolderId = null; S.page = 0; render(); };
+        row2.appendChild(allBtn2);
+
+        for (const s of sub2) {
+          const active = S.subFolderId === s.id;
+          const btn = mkBtn(s.name, active);
+          btn.onclick = () => { S.subFolderId = s.id; S.page = 0; render(); };
+          row2.appendChild(btn);
+        }
+        nav.appendChild(lbl2);
+        nav.appendChild(row2);
+      }
+    }
+  }
+}
+
+// ── Content area ──────────────────────────────────────────────────────────────
+function renderContent(catId, subs, isYear) {
+  let breadParts = [CATEGORIES[S.catIdx].name];
+  let fileIds    = [];
+  let showHint   = false;
+  let groupedByYear = null;  // [{year, ids}] when showing multiple years
+
+  if (isYear) {
+    if (!S.period) {
+      // No period chosen → collect everything (or show hint for large cats)
+      const total = collectImages(catId).length;
+      if (total > 500) { showHint = true; }
+      else { fileIds = collectImages(catId); }
+    } else {
+      breadParts.push(S.period.label);
+      if (S.eventId) {
+        // Specific event chosen
+        const evName = IDX.folders[S.eventId]?.name || "";
+        breadParts.push(evName);
+        fileIds = collectImages(S.eventId);
+      } else {
+        // All events in period — group by year for display
+        groupedByYear = [];
+        for (const yf of S.period.yearFolders) {
+          const ids = collectImages(yf.id);
+          if (ids.length) groupedByYear.push({ year: yf.name, ids });
+        }
+        fileIds = groupedByYear.flatMap(g => g.ids);
+      }
+    }
+  } else {
+    const targetId = S.subFolderId || S.eventId || catId;
+    if (S.eventId) {
+      breadParts.push(IDX.folders[S.eventId]?.name || "");
+      if (S.subFolderId) breadParts.push(IDX.folders[S.subFolderId]?.name || "");
+    }
+    fileIds = collectImages(targetId);
+  }
+
+  renderBreadcrumb(breadParts);
+
+  if (showHint) {
+    document.getElementById("photo-count").textContent = "";
+    renderHint("👆 בחר תקופה כדי לראות תמונות");
+    renderPagination(0, 0);
+    return;
+  }
+
+  document.getElementById("photo-count").textContent =
+    fileIds.length ? `${fileIds.length} תמונות` : "";
+
+  // Paginate
+  const nPages = Math.max(1, Math.ceil(fileIds.length / PAGE_SIZE));
+  if (S.page >= nPages) S.page = nPages - 1;
+  const start   = S.page * PAGE_SIZE;
+  const pageIds = fileIds.slice(start, start + PAGE_SIZE);
+
+  // Build modal file list
+  S.modalFiles = fileIds;
+
+  renderGrid(pageIds, groupedByYear, start);
+  renderPagination(S.page, nPages);
+}
+
+// ── Search results ────────────────────────────────────────────────────────────
+function renderSearch() {
+  document.getElementById("sub-nav").innerHTML = "";
+  document.getElementById("breadcrumb").innerHTML = "";
+
+  const results = searchFolders(S.search);
+  if (!results.length) {
+    document.getElementById("photo-count").textContent = "";
+    renderHint("לא נמצאו תיקיות");
+    renderPagination(0, 0);
+    return;
+  }
+
+  if (!S.searchChosen) S.searchChosen = results[0].id;
+
+  // Render result pills
+  const nav = document.getElementById("sub-nav");
+  nav.innerHTML = "";
+  const lbl = document.createElement("div"); lbl.className = "sub-nav-label";
+  lbl.textContent = `${results.length} תוצאות עבור "${S.search}"`;
+  const row = document.createElement("div"); row.className = "pill-row";
+  for (const r of results) {
+    const btn = mkBtn(r.path, S.searchChosen === r.id);
+    btn.onclick = () => { S.searchChosen = r.id; S.page = 0; render(); };
+    row.appendChild(btn);
+  }
+  nav.appendChild(lbl);
+  nav.appendChild(row);
+
+  const chosen = results.find(r => r.id === S.searchChosen) || results[0];
+  S.searchChosen = chosen.id;
+  renderBreadcrumb([chosen.path.replace(/ › /g, " › ")]);
+
+  const fileIds = collectImages(chosen.id);
+  document.getElementById("photo-count").textContent =
+    fileIds.length ? `${fileIds.length} תמונות` : "";
+
+  S.modalFiles = fileIds;
+  const nPages  = Math.max(1, Math.ceil(fileIds.length / PAGE_SIZE));
+  if (S.page >= nPages) S.page = nPages - 1;
+  const pageIds = fileIds.slice(S.page * PAGE_SIZE, (S.page + 1) * PAGE_SIZE);
+
+  renderGrid(pageIds, null, S.page * PAGE_SIZE);
+  renderPagination(S.page, nPages);
+}
+
+// ── Breadcrumb ────────────────────────────────────────────────────────────────
+function renderBreadcrumb(parts) {
   const bc = document.getElementById("breadcrumb");
-  bc.innerHTML = display.map((p, i) =>
-    i < display.length - 1
-      ? `<button class="bc-btn" onclick="navigateTo('${p.id}')">${p.name}</button>
-         <span class="bc-sep">›</span>`
-      : `<span class="bc-cur">${p.name}</span>`
+  bc.innerHTML = "📁 " + parts.map((p, i) =>
+    i < parts.length - 1
+      ? `<span class="bc-cur">${p}</span><span class="bc-sep">›</span>`
+      : `<span class="bc-cur">${p}</span>`
   ).join("");
 }
 
 // ── Grid ──────────────────────────────────────────────────────────────────────
-function renderGrid(fileIds) {
+function renderGrid(pageIds, groupedByYear, globalStart) {
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
 
-  if (!fileIds.length) {
-    grid.innerHTML = '<p class="empty">אין תמונות בתיקייה זו</p>';
+  if (!pageIds.length) {
+    grid.innerHTML = '<p class="empty-msg">אין תמונות בתיקייה זו</p>';
     return;
   }
 
   const frag = document.createDocumentFragment();
-  fileIds.forEach((fid, idx) => {
-    const file = IDX.files[fid];
-    const wrap = document.createElement("div");
-    wrap.className = "thumb-wrap";
 
-    const img = document.createElement("img");
-    img.loading  = "lazy";
-    img.decoding = "async";
-    img.src      = `./static/thumbs/${fid}.jpg`;
-    img.alt      = file.name;
-    img.title    = file.name;
-    img.onerror  = () => { img.src = PLACEHOLDER_SVG; img.style.objectFit = "contain"; };
-    img.onclick  = () => openModal(idx);
+  if (groupedByYear && !S.eventId) {
+    // Show year dividers — but only for years that appear on this page
+    const pageSet = new Set(pageIds);
+    let renderedYearHeaders = new Set();
 
-    wrap.appendChild(img);
-    frag.appendChild(wrap);
-  });
+    // Find which year each file belongs to
+    const fileYear = {};
+    for (const { year, ids } of groupedByYear)
+      for (const id of ids) fileYear[id] = year;
+
+    for (let i = 0; i < pageIds.length; i++) {
+      const fid  = pageIds[i];
+      const year = fileYear[fid];
+      if (year && !renderedYearHeaders.has(year)) {
+        renderedYearHeaders.add(year);
+        const hdr = document.createElement("div");
+        hdr.className   = "year-header";
+        hdr.textContent = year;
+        frag.appendChild(hdr);
+      }
+      frag.appendChild(makeThumb(fid, globalStart + i));
+    }
+  } else {
+    for (let i = 0; i < pageIds.length; i++)
+      frag.appendChild(makeThumb(pageIds[i], globalStart + i));
+  }
 
   grid.appendChild(frag);
+}
+
+function makeThumb(fid, globalIdx) {
+  const file = IDX.files[fid];
+  const wrap = document.createElement("div");
+  wrap.className = "thumb-wrap";
+
+  const img      = document.createElement("img");
+  img.loading    = "lazy";
+  img.decoding   = "async";
+  img.src        = `./static/thumbs/${fid}.jpg`;
+  img.alt        = file?.name || "";
+  img.title      = file?.name || "";
+  img.onerror    = () => { img.src = PLACEHOLDER_SVG; img.style.objectFit = "contain"; };
+  img.onclick    = () => openModal(globalIdx);
+
+  wrap.appendChild(img);
+  return wrap;
+}
+
+// ── Pagination ────────────────────────────────────────────────────────────────
+function renderPagination(page, nPages) {
+  const el = document.getElementById("pagination");
+  if (nPages <= 1) { el.innerHTML = ""; return; }
+
+  el.innerHTML = "";
+  const prev = mkBtn("← הקודם", false);
+  prev.disabled = page === 0;
+  prev.onclick  = () => { S.page--; render(); window.scrollTo(0,0); };
+
+  const info = document.createElement("span");
+  info.id          = "pager-label";
+  info.textContent = `עמוד ${page + 1} מתוך ${nPages}`;
+
+  const next = mkBtn("הבא →", false);
+  next.disabled = page >= nPages - 1;
+  next.onclick  = () => { S.page++; render(); window.scrollTo(0,0); };
+
+  el.appendChild(prev);
+  el.appendChild(info);
+  el.appendChild(next);
+}
+
+function renderHint(msg) {
+  const grid = document.getElementById("grid");
+  grid.innerHTML = `<p class="hint-msg">${msg}</p>`;
+  document.getElementById("pagination").innerHTML = "";
+}
+
+// ── Button factory ─────────────────────────────────────────────────────────────
+function mkBtn(label, active) {
+  const btn = document.createElement("button");
+  btn.className   = active ? "btn btn-primary" : "btn btn-secondary";
+  btn.textContent = label;
+  return btn;
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
@@ -290,46 +554,42 @@ function setupModal() {
   document.getElementById("modal-next").onclick  = () => stepModal(+1);
 }
 
-function openModal(idx) {
-  modalIdx = idx;
+function openModal(globalIdx) {
+  S.modalIdx = globalIdx;
   showModalImage();
   document.getElementById("modal").hidden = false;
 }
 
 function showModalImage() {
-  const fid    = curFiles[modalIdx];
-  const file   = IDX.files[fid];
-  const mImg   = document.getElementById("modal-img");
-  const spin   = document.getElementById("modal-spinner");
+  const fid  = S.modalFiles[S.modalIdx];
+  if (!fid) return;
+  const file = IDX.files[fid];
+  const mImg = document.getElementById("modal-img");
+  const spin = document.getElementById("modal-spinner");
 
-  mImg.style.opacity = "0";
-  spin.style.display = "block";
+  mImg.style.opacity  = "0";
+  spin.style.display  = "block";
 
-  mImg.onload = () => {
-    mImg.style.opacity = "1";
-    spin.style.display = "none";
-  };
+  mImg.onload  = () => { mImg.style.opacity = "1"; spin.style.display = "none"; };
   mImg.onerror = () => {
-    // fall back to small thumbnail
     mImg.src = `./static/thumbs/${fid}.jpg`;
     spin.style.display = "none";
     mImg.style.opacity = "1";
   };
-
   mImg.src = `./static/modal/${fid}.jpg`;
-  document.getElementById("modal-name").textContent = file.name;
-  document.getElementById("modal-drive-link").href =
+
+  document.getElementById("modal-name").textContent = file?.name || "";
+  document.getElementById("modal-drive-link").href  =
     `https://drive.google.com/file/d/${fid}/view`;
 
-  // prev/next visibility
-  document.getElementById("modal-prev").disabled = modalIdx === 0;
-  document.getElementById("modal-next").disabled = modalIdx === curFiles.length - 1;
+  document.getElementById("modal-prev").disabled = S.modalIdx === 0;
+  document.getElementById("modal-next").disabled = S.modalIdx >= S.modalFiles.length - 1;
 }
 
 function stepModal(delta) {
-  const next = modalIdx + delta;
-  if (next < 0 || next >= curFiles.length) return;
-  modalIdx = next;
+  const next = S.modalIdx + delta;
+  if (next < 0 || next >= S.modalFiles.length) return;
+  S.modalIdx = next;
   showModalImage();
 }
 
@@ -340,12 +600,11 @@ function closeModal() {
 
 // ── Keyboard ──────────────────────────────────────────────────────────────────
 function setupKeyboard() {
-  document.addEventListener("keydown", (e) => {
-    const modal = document.getElementById("modal");
-    if (!modal.hidden) {
-      if (e.key === "Escape")     closeModal();
-      if (e.key === "ArrowRight") stepModal(-1);  // RTL: right = prev
-      if (e.key === "ArrowLeft")  stepModal(+1);  // RTL: left  = next
+  document.addEventListener("keydown", e => {
+    if (!document.getElementById("modal").hidden) {
+      if (e.key === "Escape")      closeModal();
+      if (e.key === "ArrowRight")  stepModal(-1);
+      if (e.key === "ArrowLeft")   stepModal(+1);
     }
   });
 }

@@ -3,35 +3,54 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ארכיון תמונות משפחה 📸</title>
+  <title>תמונות משפחה 📸</title>
   <link rel="stylesheet" href="gallery.css">
 </head>
 <body>
 
-  <!-- ── Sidebar ─────────────────────────────────────────────────── -->
-  <aside id="sidebar">
-    <div id="sidebar-header">
-      <span id="logo">📸</span>
-      <span id="logo-title">ארכיון משפחתי</span>
-    </div>
-    <input id="search" type="search" placeholder="חיפוש תיקייה…" autocomplete="off">
-    <div id="folder-tree"></div>
-  </aside>
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <div id="header">
+    <span id="logo-title">📸 תמונות משפחה</span>
+    <button class="btn btn-secondary" id="btn-home">🏠 ראשי</button>
+  </div>
 
-  <!-- ── Main content ────────────────────────────────────────────── -->
-  <main id="content">
-    <div id="breadcrumb"></div>
-    <div id="toolbar">
-      <span id="photo-count"></span>
-    </div>
+  <!-- ── Search ──────────────────────────────────────────────────────────── -->
+  <div id="search-wrap">
+    <input id="search" type="search"
+           placeholder="🔍 חיפוש תיקייה — שם אירוע, שנה או מקום..."
+           autocomplete="off">
+  </div>
+
+  <!-- ── Category nav ────────────────────────────────────────────────────── -->
+  <div id="cat-nav"></div>
+  <hr class="divider">
+
+  <!-- ── Sub-navigation (periods / events / folders) ─────────────────────── -->
+  <div id="sub-nav"></div>
+
+  <!-- ── Breadcrumb ──────────────────────────────────────────────────────── -->
+  <div id="breadcrumb"></div>
+
+  <!-- ── Toolbar (count + filter) ────────────────────────────────────────── -->
+  <div id="toolbar">
+    <span id="photo-count"></span>
+  </div>
+
+  <!-- ── Image grid ──────────────────────────────────────────────────────── -->
+  <div id="grid-wrap">
     <div id="grid"></div>
-    <div id="loading" hidden>
-      <div class="spinner"></div>
-      <span>טוען…</span>
-    </div>
-  </main>
+  </div>
 
-  <!-- ── Modal ───────────────────────────────────────────────────── -->
+  <!-- ── Pagination ──────────────────────────────────────────────────────── -->
+  <div id="pagination"></div>
+
+  <!-- ── Loading overlay ─────────────────────────────────────────────────── -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <span>טוען…</span>
+  </div>
+
+  <!-- ── Modal ───────────────────────────────────────────────────────────── -->
   <div id="modal" hidden>
     <div id="modal-bg"></div>
     <div id="modal-box">
@@ -42,8 +61,8 @@
       <div id="modal-footer">
         <p id="modal-name"></p>
         <div id="modal-actions">
-          <button id="modal-prev" title="הקודם">‹</button>
-          <button id="modal-next" title="הבא">›</button>
+          <button id="modal-prev">‹</button>
+          <button id="modal-next">›</button>
           <a id="modal-drive-link" target="_blank" rel="noopener">🔗 Drive</a>
           <button id="modal-close">✕</button>
         </div>
