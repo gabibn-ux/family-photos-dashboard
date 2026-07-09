@@ -85,7 +85,14 @@ body {
   padding: 12px 20px 0;
   display: flex; flex-direction: column; gap: 6px;
 }
-.pill-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill-row {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+/* במובייל — גלילה אופקית במקום ריבוי שורות */
+@media (max-width: 600px) {
+  .pill-row { flex-wrap: nowrap; padding-bottom: 4px; }
+}
 
 /* ── Divider ─────────────────────────────────────────────────────────────── */
 .divider {
