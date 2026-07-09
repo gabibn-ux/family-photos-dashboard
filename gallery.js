@@ -20,7 +20,7 @@ const COLS      = 4;
 const CATEGORIES = [
   { name: "משפחה - לפי שנים",   icon: "👨‍👩‍👧‍👦" },
   { name: "אירועים משפחתיים",   icon: "🎉"  },
-  { name: "טיולים",              icon: "✈️"  },
+  // { name: "טיולים",            icon: "✈️"  },  // אוחדה ל"משפחה - לפי שנים"
   { name: "תמונות סרוקות",       icon: "🗃️"  },
   { name: "תמונות לא ממויינות",  icon: "📋"  },
   // { name: "אוכל",             icon: "🍽️"  },  // הוסתר לפי בקשה
@@ -52,7 +52,7 @@ const S = {
 async function init() {
   showLoading(true);
   try {
-    IDX = await fetch("./static/index.json?v=9").then(r => r.json());
+    IDX = await fetch("./static/index.json?v=10").then(r => r.json());
   } catch (e) {
     document.getElementById("grid").innerHTML =
       `<p class="empty-msg">שגיאה בטעינת index.json: ${e.message}</p>`;
