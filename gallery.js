@@ -52,7 +52,7 @@ const S = {
 async function init() {
   showLoading(true);
   try {
-    IDX = await fetch("./static/index.json?v=7").then(r => r.json());
+    IDX = await fetch("./static/index.json?v=8").then(r => r.json());
   } catch (e) {
     document.getElementById("grid").innerHTML =
       `<p class="empty-msg">שגיאה בטעינת index.json: ${e.message}</p>`;
@@ -642,15 +642,30 @@ function showModalImage() {
   spin.style.display = "none";
 
   if (vid) {
-    // Show embedded Drive video player
     mImg.style.display = "none";
-    const iframe = document.createElement("iframe");
-    iframe.src             = `https://drive.google.com/file/d/${fid}/preview`;
-    iframe.className       = "modal-video";
-    iframe.allow           = "autoplay";
-    iframe.allowFullscreen = true;
-    iframe.setAttribute("allowfullscreen", "");
-    wrap.appendChild(iframe);
+    const driveUrl = `https://drive.google.com/file/d/${fid}/view`;
+    if (window.innerWidth <= 700) {
+      // Mobile: Drive iframe overlays controls on the video — open in Drive instead
+      const vidWrap = document.createElement("div");
+      vidWrap.className = "modal-audio-wrap";
+      vidWrap.innerHTML = `
+        <div class="modal-audio-icon">🎬</div>
+        <div class="modal-audio-name">${file?.name || ""}</div>
+        <a class="modal-audio-play-btn" href="${driveUrl}" target="_blank" rel="noopener">
+          ▶ לחץ לצפייה בסרט
+        </a>
+        <div class="modal-audio-hint">הסרט ייפתח ב-Google Drive</div>`;
+      wrap.appendChild(vidWrap);
+    } else {
+      // Desktop: embedded player works fine
+      const iframe = document.createElement("iframe");
+      iframe.src             = `https://drive.google.com/file/d/${fid}/preview`;
+      iframe.className       = "modal-video";
+      iframe.allow           = "autoplay";
+      iframe.allowFullscreen = true;
+      iframe.setAttribute("allowfullscreen", "");
+      wrap.appendChild(iframe);
+    }
   } else if (aud) {
     // Audio: open in Drive (iframe can't play private WAV files cross-origin)
     mImg.style.display = "none";
