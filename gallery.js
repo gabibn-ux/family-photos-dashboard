@@ -50,7 +50,7 @@ const S = {
 async function init() {
   showLoading(true);
   try {
-    IDX = await fetch("./static/index.json?v=17").then(r => r.json());
+    IDX = await fetch("./static/index.json?v=18").then(r => r.json());
   } catch (e) {
     document.getElementById("grid").innerHTML =
       `<p class="empty-msg">שגיאה בטעינת index.json: ${e.message}</p>`;
@@ -550,13 +550,13 @@ function makeThumb(fid, globalIdx) {
     const img      = document.createElement("img");
     img.loading    = "lazy";
     img.decoding   = "async";
-    img.src        = `./static/thumbs/${fid}.jpg`;
+    img.src        = `https://drive.google.com/thumbnail?id=${fid}&sz=w400`;
     img.alt        = file?.name || "";
     img.title      = file?.name || "";
     img.onerror    = () => {
-      if (!img.dataset.triedDrive) {
-        img.dataset.triedDrive = "1";
-        img.src = `https://drive.google.com/thumbnail?id=${fid}&sz=w400`;
+      if (!img.dataset.triedThumb) {
+        img.dataset.triedThumb = "1";
+        img.src = `./static/thumbs/${fid}.jpg`;  // fallback: local 120px
       } else {
         img.src = PLACEHOLDER_SVG;
         img.style.objectFit = "contain";
@@ -647,21 +647,33 @@ function showModalImage() {
   spin.style.display = "none";
 
   if (vid || aud) {
-    // וידאו ואודיו — iframe של Drive בכל מכשיר (Drive מנגן MP4/MOV/MP3/M4A/WAV)
     mImg.style.display = "none";
-    const iframe = document.createElement("iframe");
-    iframe.src             = `https://drive.google.com/file/d/${fid}/preview`;
-    iframe.className       = aud ? "modal-audio-iframe" : "modal-video";
-    iframe.allow           = "autoplay";
-    iframe.allowFullscreen = true;
-    iframe.setAttribute("allowfullscreen", "");
-    // כפתור גיבוי לפתיחה ישירה ב-Drive
-    const driveUrl = `https://drive.google.com/file/d/${fid}/view`;
-    const hint = document.createElement("div");
-    hint.className = "media-fallback-hint";
-    hint.innerHTML = `לא מתנגן? <a href="${driveUrl}" target="_blank" rel="noopener">פתח ב-Drive ↗</a>`;
-    wrap.appendChild(iframe);
-    wrap.appendChild(hint);
+    const driveUrl  = `https://drive.google.com/file/d/${fid}/view`;
+    const isIOS     = /iPhone|iPad|iPod/.test(navigator.userAgent);
+
+    if (aud && isIOS) {
+      // אודיו ב-iOS — כפתור פתיחה ב-Drive (iframe לא עובד ב-Safari PWA)
+      const btn = document.createElement("a");
+      btn.href      = driveUrl;
+      btn.target    = "_blank";
+      btn.rel       = "noopener";
+      btn.className = "ios-audio-btn";
+      btn.innerHTML = `<span style="font-size:48px">🎵</span><br>${file?.name || ""}<br><span style="font-size:14px;opacity:.8">הקש להאזנה ב-Drive ↗</span>`;
+      wrap.appendChild(btn);
+    } else {
+      // וידאו / אודיו ב-desktop+Android — iframe של Drive
+      const iframe = document.createElement("iframe");
+      iframe.src             = `https://drive.google.com/file/d/${fid}/preview`;
+      iframe.className       = aud ? "modal-audio-iframe" : "modal-video";
+      iframe.allow           = "autoplay";
+      iframe.allowFullscreen = true;
+      iframe.setAttribute("allowfullscreen", "");
+      const hint = document.createElement("div");
+      hint.className = "media-fallback-hint";
+      hint.innerHTML = `לא מתנגן? <a href="${driveUrl}" target="_blank" rel="noopener">פתח ב-Drive ↗</a>`;
+      wrap.appendChild(iframe);
+      wrap.appendChild(hint);
+    }
   } else {
     // Show image
     mImg.style.opacity = "0";
