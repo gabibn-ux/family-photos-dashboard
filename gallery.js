@@ -52,7 +52,7 @@ const S = {
 async function init() {
   showLoading(true);
   try {
-    IDX = await fetch("./static/index.json?v=8").then(r => r.json());
+    IDX = await fetch("./static/index.json?v=9").then(r => r.json());
   } catch (e) {
     document.getElementById("grid").innerHTML =
       `<p class="empty-msg">שגיאה בטעינת index.json: ${e.message}</p>`;
@@ -108,19 +108,25 @@ function hasYearStructure(subs) {
   return yearLike / subs.length >= 0.5;
 }
 
+// Custom year ranges — tailored to where the family content actually lives
+const YEAR_GROUPS = [
+  { label: "98–2004",   start: 1998, end: 2004 },
+  { label: "2005–2006", start: 2005, end: 2006 },
+  { label: "2007–2008", start: 2007, end: 2008 },
+  { label: "2009–2010", start: 2009, end: 2010 },
+  { label: "2011–2016", start: 2011, end: 2016 },
+  { label: "2017–2026", start: 2017, end: 2026 },
+];
+
 function groupBy5Years(subs) {
-  const buckets = {};
   const real = subs.filter(s => /^\d{4}$/.test(s.name));
   real.sort((a, b) => +a.name - +b.name);
-  for (const s of real) {
-    const y = +s.name;
-    const start = Math.floor(y / 5) * 5;
-    const label = `${start}–${start + 4}`;
-    (buckets[label] = buckets[label] || { start, items: [] }).items.push(s);
+  const result = [];
+  for (const g of YEAR_GROUPS) {
+    const items = real.filter(s => +s.name >= g.start && +s.name <= g.end);
+    if (items.length) result.push({ label: g.label, yearFolders: items });
   }
-  return Object.values(buckets)
-    .sort((a, b) => a.start - b.start)
-    .map(b => ({ label: `${b.start}–${b.start+4}`, yearFolders: b.items }));
+  return result;
 }
 
 function findCatId(catName) {
