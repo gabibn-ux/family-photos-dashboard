@@ -89,9 +89,10 @@ body {
   display: flex; flex-wrap: wrap; gap: 6px;
   overflow-x: auto; -webkit-overflow-scrolling: touch;
 }
-/* במובייל — גלילה אופקית במקום ריבוי שורות */
+/* במובייל — עטיפה ל-2 שורות */
 @media (max-width: 600px) {
-  .pill-row { flex-wrap: nowrap; padding-bottom: 4px; }
+  .pill-row { flex-wrap: wrap; }
+  .pill-row .btn { font-size: 13px; padding: 6px 14px; }
 }
 
 /* ── Divider ─────────────────────────────────────────────────────────────── */
