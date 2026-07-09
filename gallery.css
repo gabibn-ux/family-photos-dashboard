@@ -42,6 +42,13 @@ body {
 }
 .cat-icon { font-size: 26px; line-height: 1; }
 .cat-label { font-size: 17px; }
+
+/* במובייל — קטגוריות קומפקטיות ב-2 שורות */
+@media (max-width: 600px) {
+  #cat-nav .btn { font-size: 13px; padding: 7px 12px; gap: 5px; }
+  .cat-icon { font-size: 18px; }
+  .cat-label { font-size: 13px; }
+}
 .btn-secondary {
   background: var(--gray-50); border: 1px solid var(--gray-200);
   color: var(--gray-700);
