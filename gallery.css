@@ -283,3 +283,12 @@ body {
   border: none;
   background: #000;
 }
+
+/* Mobile: force 16:9 ratio + ~80px for Drive's own controls bar,
+   so Drive renders its controls BELOW the video instead of overlaying it */
+@media (max-width: 600px) {
+  .modal-video {
+    width: 96vw;
+    height: calc(96vw * 9 / 16 + 80px);
+  }
+}
