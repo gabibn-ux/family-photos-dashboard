@@ -7,9 +7,19 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>תמונות משפחה 📸</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="תמונות">
+  <meta name="theme-color" content="#2563eb">
   <script>
     // Force reload with version param if not already versioned
     if (!location.search.includes('v=15')) location.replace('?v=15');
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
   </script>
   <link rel="stylesheet" href="gallery.css?v=15">
 </head>
