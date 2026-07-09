@@ -49,7 +49,7 @@ const S = {
 async function init() {
   showLoading(true);
   try {
-    IDX = await fetch("./static/index.json?v=11").then(r => r.json());
+    IDX = await fetch("./static/index.json?v=12").then(r => r.json());
   } catch (e) {
     document.getElementById("grid").innerHTML =
       `<p class="empty-msg">שגיאה בטעינת index.json: ${e.message}</p>`;
@@ -227,7 +227,9 @@ function renderCatNav() {
   const row2 = document.createElement("div"); row2.className = "pill-row";
 
   CATEGORIES.forEach((cat, i) => {
-    const btn = mkBtn(`${cat.icon}  ${cat.name}`, i === S.catIdx);
+    const btn = document.createElement("button");
+    btn.className = (i === S.catIdx ? "btn btn-primary" : "btn btn-secondary") + " cat-btn";
+    btn.innerHTML = `<span class="cat-icon">${cat.icon}</span><span class="cat-label">${cat.name}</span>`;
     btn.onclick = () => { selectCat(i, true); };
     (i < 4 ? row1 : row2).appendChild(btn);
   });
