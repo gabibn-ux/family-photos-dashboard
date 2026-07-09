@@ -1,6 +1,6 @@
 {
   "name": "תמונות משפחה",
-  "short_name": "תמונות",
+  "short_name": "תמונות משפחה",
   "description": "גלריית תמונות משפחת בן עזרא",
   "start_url": "/family-photos-dashboard/?v=16",
   "scope": "/family-photos-dashboard/",

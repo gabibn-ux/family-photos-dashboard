@@ -11,17 +11,17 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="תמונות">
+  <meta name="apple-mobile-web-app-title" content="תמונות משפחה">
   <meta name="theme-color" content="#2563eb">
   <script>
     // Force reload with version param if not already versioned
-    if (!location.search.includes('v=20')) location.replace('?v=20');
+    if (!location.search.includes('v=21')) location.replace('?v=21');
     // Register Service Worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js').catch(() => {});
     }
   </script>
-  <link rel="stylesheet" href="gallery.css?v=20">
+  <link rel="stylesheet" href="gallery.css?v=21">
 </head>
 <body>
 
@@ -87,6 +87,6 @@
     </div>
   </div>
 
-  <script src="gallery.js?v=20"></script>
+  <script src="gallery.js?v=21"></script>
 </body>
 </html>
