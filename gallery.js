@@ -18,13 +18,10 @@ const PAGE_SIZE = 40;
 const COLS      = 4;
 
 const CATEGORIES = [
-  { name: "משפחה - לפי שנים",   icon: "👨‍👩‍👧‍👦" },
-  { name: "אירועים משפחתיים",   icon: "🎉"  },
-  // { name: "טיולים",            icon: "✈️"  },  // אוחדה ל"משפחה - לפי שנים"
-  { name: "תמונות סרוקות",       icon: "🗃️"  },
-  { name: "תמונות לא ממויינות",  icon: "📋"  },
-  // { name: "אוכל",             icon: "🍽️"  },  // הוסתר לפי בקשה
-  { name: "ג׳וי",                icon: "🐕"  },
+  { name: "משפחה - לפי שנים",  icon: "👨‍👩‍👧‍👦" },
+  { name: "אירועים משפחתיים",  icon: "🎉"  },
+  { name: "תמונות סרוקות",      icon: "🗃️"  },
+  { name: "ג׳וי",               icon: "🐕"  },
 ];
 
 const PLACEHOLDER_SVG =
@@ -52,7 +49,7 @@ const S = {
 async function init() {
   showLoading(true);
   try {
-    IDX = await fetch("./static/index.json?v=10").then(r => r.json());
+    IDX = await fetch("./static/index.json?v=11").then(r => r.json());
   } catch (e) {
     document.getElementById("grid").innerHTML =
       `<p class="empty-msg">שגיאה בטעינת index.json: ${e.message}</p>`;
@@ -79,7 +76,7 @@ function subfolders(fid) {
   const f = IDX.folders[fid];
   return (f?.folders || [])
     .map(id => ({ id, name: IDX.folders[id]?.name || "" }))
-    .filter(x => x.name);
+    .filter(x => x.name && collectMedia(x.id).length > 0);  // מסנן תיקיות ריקות
 }
 
 function collectMedia(fid, out = []) {
@@ -647,45 +644,22 @@ function showModalImage() {
   mImg.style.display = "";
   spin.style.display = "none";
 
-  if (vid) {
+  if (vid || aud) {
+    // וידאו ואודיו — iframe של Drive בכל מכשיר (Drive מנגן MP4/MOV/MP3/M4A/WAV)
     mImg.style.display = "none";
+    const iframe = document.createElement("iframe");
+    iframe.src             = `https://drive.google.com/file/d/${fid}/preview`;
+    iframe.className       = aud ? "modal-audio-iframe" : "modal-video";
+    iframe.allow           = "autoplay";
+    iframe.allowFullscreen = true;
+    iframe.setAttribute("allowfullscreen", "");
+    // כפתור גיבוי לפתיחה ישירה ב-Drive
     const driveUrl = `https://drive.google.com/file/d/${fid}/view`;
-    if (window.innerWidth <= 700) {
-      // Mobile: Drive iframe overlays controls on the video — open in Drive instead
-      const vidWrap = document.createElement("div");
-      vidWrap.className = "modal-audio-wrap";
-      vidWrap.innerHTML = `
-        <div class="modal-audio-icon">🎬</div>
-        <div class="modal-audio-name">${file?.name || ""}</div>
-        <a class="modal-audio-play-btn" href="${driveUrl}" target="_blank" rel="noopener">
-          ▶ לחץ לצפייה בסרט
-        </a>
-        <div class="modal-audio-hint">הסרט ייפתח ב-Google Drive</div>`;
-      wrap.appendChild(vidWrap);
-    } else {
-      // Desktop: embedded player works fine
-      const iframe = document.createElement("iframe");
-      iframe.src             = `https://drive.google.com/file/d/${fid}/preview`;
-      iframe.className       = "modal-video";
-      iframe.allow           = "autoplay";
-      iframe.allowFullscreen = true;
-      iframe.setAttribute("allowfullscreen", "");
-      wrap.appendChild(iframe);
-    }
-  } else if (aud) {
-    // Audio: open in Drive (iframe can't play private WAV files cross-origin)
-    mImg.style.display = "none";
-    const audWrap = document.createElement("div");
-    audWrap.className = "modal-audio-wrap";
-    const driveUrl = `https://drive.google.com/file/d/${fid}/view`;
-    audWrap.innerHTML = `
-      <div class="modal-audio-icon">🎵</div>
-      <div class="modal-audio-name">${file?.name || ""}</div>
-      <a class="modal-audio-play-btn" href="${driveUrl}" target="_blank" rel="noopener">
-        ▶ לחץ לנגן
-      </a>
-      <div class="modal-audio-hint">הקובץ ייפתח ב-Google Drive לניגון</div>`;
-    wrap.appendChild(audWrap);
+    const hint = document.createElement("div");
+    hint.className = "media-fallback-hint";
+    hint.innerHTML = `לא מתנגן? <a href="${driveUrl}" target="_blank" rel="noopener">פתח ב-Drive ↗</a>`;
+    wrap.appendChild(iframe);
+    wrap.appendChild(hint);
   } else {
     // Show image
     mImg.style.opacity = "0";
@@ -719,7 +693,7 @@ function closeModal() {
   document.getElementById("modal").hidden = true;
   document.getElementById("modal-img").src = "";
   const wrap = document.getElementById("modal-img-wrap");
-  wrap.querySelectorAll("iframe, .modal-audio-wrap").forEach(el => el.remove());
+  wrap.querySelectorAll("iframe, .modal-audio-wrap, .media-fallback-hint").forEach(el => el.remove());
   document.getElementById("modal-img").style.display = "";
 }
 

@@ -30,10 +30,14 @@ body {
 .btn {
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: var(--radius-pill);
-  font-size: 13px; padding: 5px 14px;
+  font-size: 15px; padding: 8px 20px;
   cursor: pointer; border: none; white-space: nowrap;
   transition: background 0.12s, border-color 0.12s, color 0.12s;
   line-height: 1.4;
+}
+/* כפתורי קטגוריה ראשיים — גדולים במיוחד */
+#cat-nav .btn {
+  font-size: 17px; padding: 10px 26px; font-weight: 600;
 }
 .btn-secondary {
   background: var(--gray-50); border: 1px solid var(--gray-200);
@@ -284,11 +288,31 @@ body {
   background: #000;
 }
 
-/* Mobile: force 16:9 ratio + ~80px for Drive's own controls bar,
-   so Drive renders its controls BELOW the video instead of overlaying it */
+/* Mobile: force 16:9 ratio + ~80px for Drive's own controls bar */
 @media (max-width: 600px) {
   .modal-video {
     width: 96vw;
     height: calc(96vw * 9 / 16 + 80px);
   }
 }
+
+/* ── Audio modal iframe ──────────────────────────────────────────────────────── */
+.modal-audio-iframe {
+  display: block;
+  width: min(92vw, 600px);
+  height: 120px;
+  border: none;
+  background: #1f2937;
+  border-radius: 8px;
+  margin: 24px auto;
+}
+
+/* ── כפתור גיבוי "פתח ב-Drive" מתחת למדיה ───────────────────────────────────── */
+.media-fallback-hint {
+  font-size: 12px; color: var(--gray-400);
+  text-align: center; padding: 6px 0 2px;
+}
+.media-fallback-hint a {
+  color: #93c5fd; text-decoration: none;
+}
+.media-fallback-hint a:hover { text-decoration: underline; }
