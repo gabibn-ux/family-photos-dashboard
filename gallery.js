@@ -50,7 +50,7 @@ const S = {
 async function init() {
   showLoading(true);
   try {
-    IDX = await fetch("./static/index.json?v=14").then(r => r.json());
+    IDX = await fetch("./static/index.json?v=15").then(r => r.json());
   } catch (e) {
     document.getElementById("grid").innerHTML =
       `<p class="empty-msg">שגיאה בטעינת index.json: ${e.message}</p>`;
@@ -550,8 +550,7 @@ function makeThumb(fid, globalIdx) {
     const img      = document.createElement("img");
     img.loading    = "lazy";
     img.decoding   = "async";
-    // Use modal-size image (400px) for sharp display in the grid
-    img.src        = `./static/modal/${fid}.jpg`;
+    img.src        = `https://drive.google.com/thumbnail?id=${fid}&sz=w400`;
     img.alt        = file?.name || "";
     img.title      = file?.name || "";
     img.onerror    = () => {
@@ -670,11 +669,11 @@ function showModalImage() {
 
     mImg.onload  = () => { mImg.style.opacity = "1"; spin.style.display = "none"; };
     mImg.onerror = () => {
-      mImg.src = `./static/thumbs/${fid}.jpg`;
+      mImg.src = `./static/thumbs/${fid}.jpg`;  // fallback to local thumb
       spin.style.display = "none";
       mImg.style.opacity = "1";
     };
-    mImg.src = `./static/modal/${fid}.jpg`;
+    mImg.src = `https://drive.google.com/thumbnail?id=${fid}&sz=w1200`;
   }
 
   document.getElementById("modal-name").textContent = file?.name || "";
