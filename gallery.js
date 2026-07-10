@@ -50,7 +50,7 @@ const S = {
 async function init() {
   showLoading(true);
   try {
-    IDX = await fetch("./static/index.json?v=25").then(r => r.json());
+    IDX = await fetch("./static/index.json?v=26").then(r => r.json());
   } catch (e) {
     document.getElementById("grid").innerHTML =
       `<p class="empty-msg">שגיאה בטעינת index.json: ${e.message}</p>`;
@@ -639,10 +639,7 @@ function showModalImage() {
   const spin = document.getElementById("modal-spinner");
 
   // Clean up any previous media
-  const oldIframe = wrap.querySelector("iframe");
-  if (oldIframe) oldIframe.remove();
-  const oldAudio = wrap.querySelector(".modal-audio-wrap");
-  if (oldAudio) oldAudio.remove();
+  wrap.querySelectorAll("iframe, .modal-audio-wrap, .ios-audio-btn, .media-fallback-hint").forEach(el => el.remove());
   mImg.style.display = "";
   spin.style.display = "none";
 
@@ -709,7 +706,7 @@ function closeModal() {
   document.getElementById("modal").hidden = true;
   document.getElementById("modal-img").src = "";
   const wrap = document.getElementById("modal-img-wrap");
-  wrap.querySelectorAll("iframe, .modal-audio-wrap, .media-fallback-hint").forEach(el => el.remove());
+  wrap.querySelectorAll("iframe, .modal-audio-wrap, .ios-audio-btn, .media-fallback-hint").forEach(el => el.remove());
   document.getElementById("modal-img").style.display = "";
 }
 
