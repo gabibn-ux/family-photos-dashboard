@@ -50,7 +50,7 @@ const S = {
 async function init() {
   showLoading(true);
   try {
-    IDX = await fetch("./static/index.json?v=24").then(r => r.json());
+    IDX = await fetch("./static/index.json?v=25").then(r => r.json());
   } catch (e) {
     document.getElementById("grid").innerHTML =
       `<p class="empty-msg">שגיאה בטעינת index.json: ${e.message}</p>`;
@@ -651,14 +651,16 @@ function showModalImage() {
     const driveUrl  = `https://drive.google.com/file/d/${fid}/view`;
     const isIOS     = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
-    if (aud && isIOS) {
-      // אודיו ב-iOS — כפתור פתיחה ב-Drive (iframe לא עובד ב-Safari PWA)
+    if (isIOS) {
+      // iOS Safari / PWA — iframe של Drive לא עובד (חוסם cookies)
+      // מציגים כפתור גדול לפתיחה ישירה ב-Drive
       const btn = document.createElement("a");
       btn.href      = driveUrl;
       btn.target    = "_blank";
       btn.rel       = "noopener";
       btn.className = "ios-audio-btn";
-      btn.innerHTML = `<span style="font-size:48px">🎵</span><br>${file?.name || ""}<br><span style="font-size:14px;opacity:.8">הקש להאזנה ב-Drive ↗</span>`;
+      const icon = vid ? "🎬" : "🎵";
+      btn.innerHTML = `<span style="font-size:56px">${icon}</span><br><span style="font-size:13px;opacity:.7;direction:rtl;text-align:center;padding:0 12px">${file?.name || ""}</span><br><span style="font-size:15px;margin-top:8px">הקש לצפייה ב-Drive ↗</span>`;
       wrap.appendChild(btn);
     } else {
       // וידאו / אודיו ב-desktop+Android — iframe של Drive
