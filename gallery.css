@@ -3,17 +3,18 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --blue:        #2563eb;
-  --blue-light:  #eff6ff;
-  --blue-border: #93c5fd;
-  --blue-dark:   #1d4ed8;
-  --gray-50:     #f9fafb;
-  --gray-100:    #f3f4f6;
-  --gray-200:    #e5e7eb;
-  --gray-400:    #9ca3af;
-  --gray-600:    #6b7280;
-  --gray-700:    #374151;
-  --gray-900:    #1f2937;
+  /* ערכת צבעים — shaieitan.co.il inspired */
+  --blue:        #1B575A;   /* טיל בינוני — כפתורים פעילים */
+  --blue-light:  #EBF2F2;   /* רקע בחירה בהיר */
+  --blue-border: #7AACAA;   /* מסגרת hover */
+  --blue-dark:   #16403E;   /* טיל כהה — hover */
+  --gray-50:     #F7F5EF;   /* רקע ראשי — קרם חם */
+  --gray-100:    #EDEAE3;   /* רקע כרטיסים */
+  --gray-200:    #D8D5CE;   /* מסגרות */
+  --gray-400:    #9BA19F;   /* placeholder */
+  --gray-600:    #5C6663;   /* טקסט משני */
+  --gray-700:    #233331;   /* טקסט גוף */
+  --gray-900:    #16403E;   /* כותרות */
   --radius-pill: 20px;
   --radius-sm:   8px;
 }

@@ -12,16 +12,16 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="תמונות משפחה">
-  <meta name="theme-color" content="#2563eb">
+  <meta name="theme-color" content="#16403E">
   <script>
     // Force reload with version param if not already versioned
-    if (!location.search.includes('v=26')) location.replace('?v=26');
+    if (!location.search.includes('v=27')) location.replace('?v=27');
     // Register Service Worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js').catch(() => {});
     }
   </script>
-  <link rel="stylesheet" href="gallery.css?v=26">
+  <link rel="stylesheet" href="gallery.css?v=27">
 </head>
 <body>
 
@@ -87,6 +87,6 @@
     </div>
   </div>
 
-  <script src="gallery.js?v=26"></script>
+  <script src="gallery.js?v=27"></script>
 </body>
 </html>
