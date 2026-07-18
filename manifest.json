@@ -2,7 +2,7 @@
   "name": "תמונות משפחה",
   "short_name": "תמונות משפחה",
   "description": "גלריית תמונות משפחת בן עזרא",
-  "start_url": "/family-photos-dashboard/?v=27",
+  "start_url": "/family-photos-dashboard/?v=28",
   "scope": "/family-photos-dashboard/",
   "display": "standalone",
   "background_color": "#F7F5EF",

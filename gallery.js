@@ -42,6 +42,7 @@ const S = {
   page:         0,
   search:       "",
   searchChosen: null,
+  mediaFilter:  "all",   // "all" | "photo" | "video"
   modalFiles:   [],       // flat list of file ids currently in grid
   modalIdx:     0,
 };
@@ -50,7 +51,7 @@ const S = {
 async function init() {
   showLoading(true);
   try {
-    IDX = await fetch("./static/index.json?v=27").then(r => r.json());
+    IDX = await fetch("./static/index.json?v=28").then(r => r.json());
   } catch (e) {
     document.getElementById("grid").innerHTML =
       `<p class="empty-msg">שגיאה בטעינת index.json: ${e.message}</p>`;
@@ -152,6 +153,7 @@ function selectCat(idx, reset = false) {
     S.page        = 0;
     S.search      = "";
     S.searchChosen= null;
+    S.mediaFilter = "all";
     document.getElementById("search").value = "";
   }
 
@@ -396,6 +398,9 @@ function renderContent(catId, subs, isYear) {
 
   if (showHint) {
     document.getElementById("photo-count").textContent = "";
+    const tb = document.getElementById("toolbar");
+    const old = tb.querySelector(".media-filter-row");
+    if (old) old.remove();
     renderHint("👆 בחר תקופה כדי לראות תמונות");
     renderPagination(0, 0);
     return;
@@ -411,11 +416,26 @@ function renderContent(catId, subs, isYear) {
     fileIds.sort((a, b) => mediaRank(a) - mediaRank(b));
   }
 
-  const mediaCount = fileIds.length;
-  const audCount   = fileIds.filter(isAudio).length;
-  const vidCount   = fileIds.filter(isVideo).length;
-  const imgCount   = mediaCount - vidCount - audCount;
-  let countParts   = [];
+  // ── Count totals before filter (for filter button labels)
+  const totalAud = fileIds.filter(isAudio).length;
+  const totalVid = fileIds.filter(isVideo).length;
+  const totalImg = fileIds.length - totalVid - totalAud;
+
+  // ── Apply media type filter
+  if (S.mediaFilter === "photo") {
+    fileIds = fileIds.filter(fid => !isVideo(fid) && !isAudio(fid));
+  } else if (S.mediaFilter === "video") {
+    fileIds = fileIds.filter(fid => isVideo(fid));
+  }
+
+  // ── Render filter buttons in toolbar
+  renderMediaFilter(totalImg, totalVid);
+
+  // ── Count label (after filter)
+  const audCount = fileIds.filter(isAudio).length;
+  const vidCount = fileIds.filter(isVideo).length;
+  const imgCount = fileIds.length - vidCount - audCount;
+  const countParts = [];
   if (imgCount)  countParts.push(`${imgCount} תמונות`);
   if (vidCount)  countParts.push(`${vidCount} סרטונים`);
   if (audCount)  countParts.push(`${audCount} הקלטות`);
@@ -478,6 +498,35 @@ function renderSearch() {
 
   renderGrid(pageIds, null, S.page * PAGE_SIZE);
   renderPagination(S.page, nPages);
+}
+
+// ── Media type filter buttons ─────────────────────────────────────────────────
+function renderMediaFilter(imgCount, vidCount) {
+  const toolbar = document.getElementById("toolbar");
+  // Remove old filter row if present
+  const old = toolbar.querySelector(".media-filter-row");
+  if (old) old.remove();
+
+  // Only show filter when there are both photos and videos
+  if (imgCount === 0 || vidCount === 0) return;
+
+  const row = document.createElement("div");
+  row.className = "media-filter-row";
+
+  const filters = [
+    { key: "all",   label: "הכל" },
+    { key: "photo", label: `📷 תמונות (${imgCount})` },
+    { key: "video", label: `🎬 סרטונים (${vidCount})` },
+  ];
+
+  for (const f of filters) {
+    const btn = document.createElement("button");
+    btn.textContent = f.label;
+    btn.className = "btn btn-filter" + (S.mediaFilter === f.key ? " btn-filter-active" : "");
+    btn.onclick = () => { S.mediaFilter = f.key; S.page = 0; render(); };
+    row.appendChild(btn);
+  }
+  toolbar.appendChild(row);
 }
 
 // ── Breadcrumb ────────────────────────────────────────────────────────────────
