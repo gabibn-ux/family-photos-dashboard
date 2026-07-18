@@ -1,17 +1,16 @@
 // Service Worker — תמונות משפחה PWA
-const CACHE = "family-photos-v28";
-const PRECACHE = [
-  "/family-photos-dashboard/",
-  "/family-photos-dashboard/gallery.js?v=28",
-  "/family-photos-dashboard/gallery.css?v=28",
-  "/family-photos-dashboard/static/index.json?v=28",
+const CACHE   = "family-photos-v29";
+const ASSETS  = [
+  "/family-photos-dashboard/gallery.js?v=29",
+  "/family-photos-dashboard/gallery.css?v=29",
+  "/family-photos-dashboard/static/index.json?v=29",
   "/family-photos-dashboard/icon-192.png",
   "/family-photos-dashboard/icon-512.png",
 ];
 
 self.addEventListener("install", e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(PRECACHE)).then(() => self.skipWaiting())
+    caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())
   );
 });
 
@@ -26,12 +25,20 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
 
-  // תמונות Drive — רשת תמיד (לא מטמונות)
+  // Drive URLs — always network
   if (url.hostname === "drive.google.com" || url.hostname === "lh3.googleusercontent.com") {
     return;
   }
 
-  // שאר הקבצים — cache first, fallback to network
+  // HTML pages — always network (ensures version updates always land)
+  if (e.request.headers.get("accept")?.includes("text/html")) {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match("/family-photos-dashboard/"))
+    );
+    return;
+  }
+
+  // Static assets (JS, CSS, JSON, images) — cache first, then network
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request).then(resp => {
       if (resp.ok && e.request.method === "GET") {
