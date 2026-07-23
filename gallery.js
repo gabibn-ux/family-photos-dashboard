@@ -599,17 +599,12 @@ function makeThumb(fid, globalIdx) {
     const img      = document.createElement("img");
     img.loading    = "lazy";
     img.decoding   = "async";
-    img.src        = `https://drive.google.com/thumbnail?id=${fid}&sz=w400`;
+    img.src        = `./static/thumbs/${fid}.jpg`;
     img.alt        = file?.name || "";
     img.title      = file?.name || "";
     img.onerror    = () => {
-      if (!img.dataset.triedThumb) {
-        img.dataset.triedThumb = "1";
-        img.src = `./static/thumbs/${fid}.jpg`;  // fallback: local 120px
-      } else {
-        img.src = PLACEHOLDER_SVG;
-        img.style.objectFit = "contain";
-      }
+      img.src = PLACEHOLDER_SVG;
+      img.style.objectFit = "contain";
     };
     wrap.appendChild(img);
 
