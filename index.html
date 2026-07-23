@@ -15,13 +15,13 @@
   <meta name="theme-color" content="#16403E">
   <script>
     // Force reload with version param if not already versioned
-    if (!location.search.includes('v=30')) location.replace('?v=30');
+    if (!location.search.includes('v=31')) location.replace('?v=31');
     // Register Service Worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js').catch(() => {});
     }
   </script>
-  <link rel="stylesheet" href="gallery.css?v=30">
+  <link rel="stylesheet" href="gallery.css?v=31">
 </head>
 <body>
 
@@ -87,6 +87,6 @@
     </div>
   </div>
 
-  <script src="gallery.js?v=30"></script>
+  <script src="gallery.js?v=31"></script>
 </body>
 </html>

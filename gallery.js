@@ -694,14 +694,15 @@ function showModalImage() {
 
     if (isIOS) {
       // iOS Safari / PWA — iframe של Drive לא עובד (חוסם cookies)
-      // מציגים כפתור גדול לפתיחה ישירה ב-Drive
+      // פתיחה ישירה לפי URL של uc?export=download — עוקף את Drive Viewer שמבקש התחברות
+      const directUrl = `https://drive.google.com/uc?export=download&id=${fid}`;
       const btn = document.createElement("a");
-      btn.href      = driveUrl;
+      btn.href      = directUrl;
       btn.target    = "_blank";
       btn.rel       = "noopener";
       btn.className = "ios-audio-btn";
       const icon = vid ? "🎬" : "🎵";
-      btn.innerHTML = `<span style="font-size:56px">${icon}</span><br><span style="font-size:13px;opacity:.7;direction:rtl;text-align:center;padding:0 12px">${file?.name || ""}</span><br><span style="font-size:15px;margin-top:8px">הקש לצפייה ב-Drive ↗</span>`;
+      btn.innerHTML = `<span style="font-size:56px">${icon}</span><br><span style="font-size:13px;opacity:.7;direction:rtl;text-align:center;padding:0 12px">${file?.name || ""}</span><br><span style="font-size:15px;margin-top:8px">הקש לצפייה ↗</span>`;
       wrap.appendChild(btn);
     } else {
       // וידאו / אודיו ב-desktop+Android — iframe של Drive

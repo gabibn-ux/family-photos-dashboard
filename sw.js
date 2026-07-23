@@ -1,9 +1,9 @@
 // Service Worker — תמונות משפחה PWA
-const CACHE   = "family-photos-v30";
+const CACHE   = "family-photos-v31";
 const ASSETS  = [
-  "/family-photos-dashboard/gallery.js?v=30",
-  "/family-photos-dashboard/gallery.css?v=30",
-  "/family-photos-dashboard/static/index.json?v=30",
+  "/family-photos-dashboard/gallery.js?v=31",
+  "/family-photos-dashboard/gallery.css?v=31",
+  "/family-photos-dashboard/static/index.json?v=31",
   "/family-photos-dashboard/icon-192.png",
   "/family-photos-dashboard/icon-512.png",
 ];
